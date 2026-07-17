@@ -120,8 +120,9 @@ async def on_message(message):
                 await message.reply("No character specified")
                 return
             
-            bot_name = s[1].strip()
+            bot_name = " ".join(s[1:]).strip()
             bot_category = client.get_channel(BOTS_CATEGORY_ID)
+            
             for c in bot_category.text_channels:
                 if c.name == bot_name:
                     await message.reply(f'Character channel already created! {c.mention} (kill it with !kill to create a new chat)')
