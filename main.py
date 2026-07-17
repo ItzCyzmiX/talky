@@ -141,7 +141,7 @@ async def on_message(message):
 
             gif_url = ""
 
-            if len(gifs) >= 1:
+            if len(gifs) != 0:
                 try:
                     gif_url = gifs[0]['images']['original']['url']
                 except:
