@@ -1,11 +1,11 @@
 import discord
 import os
 import groq
-import google_images_search
 from pprint import pprint
 from dotenv import load_dotenv
 from requests import request
 from random import choice
+
 load_dotenv()
 
 intents = discord.Intents.default()
