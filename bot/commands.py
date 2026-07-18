@@ -35,7 +35,7 @@ class Commands(commands.Cog):
             del running_bots[interaction.channel.id]
             await interaction.channel.delete()
         else:
-            interaction.response.send_message(
+            await interaction.response.send_message(
                 "Must be used within a conversation channel!",
                 ephemeral=True,
                 delete_after=DELETE_DELAY,
