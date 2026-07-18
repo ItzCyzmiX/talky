@@ -25,7 +25,7 @@ class Commands(commands.Cog):
             return
 
         await interaction.response.send_message(
-            "\n- ```!talk <bot_name>``` (starts a conversation with the bot) \n- ```!add <new_bot_name>``` (adds a new bot to the conversation **NOT IMPLEMENTED YET**) \n- ```!kill``` (deletes the conversation in the channel)\n",
+            "\n- ```/talk <bot_name>``` (starts a conversation with the bot) \n- ```/kill``` (deletes the conversation in the channel)\n - ```/admin <user>``` (gives admin access to user)\n - ```/status``` (check if you are admin)\n",
             ephemeral=True,
             delete_after=DELETE_DELAY,
         )
