@@ -86,15 +86,3 @@ python main.py
 ```
 
 Invite the bot to your server with the `bot` + `applications.commands` scopes, then run `/talk <bot_name>` in any channel to spin up your first chatbot.
-
-## Project Structure
-
-```
-talky/
-├── bot/
-│   ├── bot.py           # Bot client setup, run_bot()
-│   └── consts.py        # Config constants (e.g. BOT_CATEGORY_ID)
-├── main.py              # Entry point
-├── requirements.txt
-└── .gitignore
-```
