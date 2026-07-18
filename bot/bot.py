@@ -9,8 +9,7 @@ from bot.supabase import (
     get_bots_with_ids,
 )
 import os
-from pprint import pprint
-from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID
+from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
 import asyncio
 
 load_dotenv()
@@ -72,6 +71,8 @@ class Talky(commands.Bot):
                 *old_msgs,
                 {"role": "user", "content": f"({message.author.name}) {msg}"},
             ]
+
+            new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
 
             did_update = await update_messages(
                 self.supabase, message.channel.id, {"messages": new_msgs}
