@@ -58,36 +58,36 @@ class Talky(commands.Bot):
             return
 
         if message.channel.id in self.running_bots:
+            async with message.channel.typing():
+                msg = message.content
 
-            msg = message.content
+                old_msgs = await get_messages(self.supabase, message.channel.id)
 
-            old_msgs = await get_messages(self.supabase, message.channel.id)
+                if old_msgs is None:
+                    return
 
-            if old_msgs is None:
-                return
+                new_msgs = [
+                    *old_msgs,
+                    {"role": "user", "content": f"({message.author.name}) {msg}"},
+                ]
 
-            new_msgs = [
-                *old_msgs,
-                {"role": "user", "content": f"({message.author.name}) {msg}"},
-            ]
+                new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
 
-            new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
+                did_update = await update_messages(
+                    self.supabase, message.channel.id, {"messages": new_msgs}
+                )
 
-            did_update = await update_messages(
-                self.supabase, message.channel.id, {"messages": new_msgs}
-            )
+                if not did_update:
+                    return
 
-            if not did_update:
-                return
+                response = await send_msg_to_bot(new_msgs)
 
-            response = await send_msg_to_bot(new_msgs)
+                if response is None:
+                    return
 
-            if response is None:
-                return
+                await message.channel.send(f"{message.channel.name}: {response}")
 
-            await message.channel.send(f"{message.channel.name}: {response}")
-
-            new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
+                new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
 
 
 async def run_bot():
