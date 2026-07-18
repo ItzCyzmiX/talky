@@ -1,3 +1,7 @@
+import os
+import aiohttp
+
+
 def sys_message(bot_name: str):
 
     return {
@@ -25,3 +29,22 @@ async def _grab_chat_history(bot, c, limit=20):
         )
 
     return old[1:]
+
+
+async def fetch_gif(bot_name: str) -> str:
+    url = "https://api.giphy.com/v1/gifs/search"
+    params = {"api_key": os.getenv("GIPHY_KEY"), "q": bot_name}
+
+    async with aiohttp.ClientSession() as session:
+        async with session.get(url, params=params) as res:
+            json = await res.json()
+
+    gifs = json.get("data", [])
+
+    if gifs:
+        try:
+            return gifs[0]["images"]["original"]["url"]
+        except (KeyError, IndexError) as e:
+            print(f"Failed to load url: {str(e)}")
+
+    return ""

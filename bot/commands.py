@@ -1,12 +1,10 @@
 import discord
 from discord import app_commands
 from discord.ext import commands
-import os
-from requests import request
 
 from bot.consts import BOT_CREATION_CHANNEL, GUILD, BOTS_CATEGORY_ID, DELETE_DELAY
 from bot.bot import running_bots
-from bot.utils import sys_message
+from bot.utils import sys_message, fetch_gif
 
 
 class Commands(commands.Cog):
@@ -69,35 +67,9 @@ class Commands(commands.Cog):
             "messages": [sys_message(bot_name)],
         }
 
-        gif_url = ""
-
-        try:
-
-            res = request(
-                "GET",
-                f"https://api.giphy.com/v1/gifs/search?api_key={os.getenv('GIPHY_KEY')}&q={bot_name}",
-            )
-
-            json = res.json()
-
-            gifs = json.get("data", [])
-
-            await new_channel.send(
-                f"{interaction.user.mention} started a convo with {bot_name}"
-            )
-
-            if len(gifs) != 0:
-                try:
-                    gif_url = gifs[0]["images"]["original"]["url"]
-
-                except Exception as e:
-                    print(f"No gif was found: {str(e)}")
-
-        except Exception as e:
-            print(f"Couldnt fetch gif: {str(e)}")
+        gif_url = fetch_gif(bot_name)
 
         if gif_url:
-
             await new_channel.send(f"{gif_url}")
 
         await interaction.response.send_message(

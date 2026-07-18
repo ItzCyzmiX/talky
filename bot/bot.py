@@ -54,7 +54,7 @@ async def on_message(message: discord.Message):
             {"role": "user", "content": f"({message.author.name}) {msg}"},
         ]
 
-        completion = groq_client.chat.completions.create(
+        completion = await groq_client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=new_msgs,
             temperature=1,

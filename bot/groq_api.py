@@ -4,4 +4,4 @@ import groq
 
 load_dotenv()
 
-groq_client = groq.Groq(api_key=os.getenv("GROQ_KEY"))
+groq_client = groq.AsyncGroq(api_key=os.getenv("GROQ_KEY"))
