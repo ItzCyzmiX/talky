@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from bot.groq_api import create_groq, send_msg_to_bot
+from bot.openrouter_api import send_msg_to_bot
 from bot.supabase import (
     get_messages,
     update_messages,
@@ -16,7 +16,7 @@ load_dotenv()
 
 
 class Talky(commands.Bot):
-    def __init__(self, *, supabase, groq_client, **kwargs):
+    def __init__(self, *, supabase, **kwargs):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.guild_messages = True
@@ -26,7 +26,6 @@ class Talky(commands.Bot):
         super().__init__(command_prefix="!", description=DESCRITPTION, intents=intents)
 
         self.supabase = supabase
-        self.groq_client = groq_client
         self.running_bots = []
 
     async def setup_hook(self):
@@ -81,7 +80,7 @@ class Talky(commands.Bot):
             if not did_update:
                 return
 
-            response = await send_msg_to_bot(self.groq_client, new_msgs)
+            response = await send_msg_to_bot(new_msgs)
 
             if response is None:
                 return
@@ -93,6 +92,5 @@ class Talky(commands.Bot):
 
 async def run_bot():
     supabase_client = await create_supabase()
-    groq_client = create_groq()
-    bot = Talky(supabase=supabase_client, groq_client=groq_client)
+    bot = Talky(supabase=supabase_client)
     await bot.start(os.getenv("DISCORD_TOKEN"))
