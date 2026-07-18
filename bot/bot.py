@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from bot.openrouter_api import send_msg_to_bot
+from bot.character_api import send_msg_to_bot
 from bot.supabase import (
     get_messages,
     update_messages,
