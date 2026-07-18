@@ -1,9 +1,9 @@
 import discord
+from discord.ext import commands
 import os
 import groq
 from dotenv import load_dotenv
 from requests import request
-
 
 load_dotenv()
 
@@ -13,8 +13,9 @@ intents.guild_messages = True
 intents.messages = True
 intents.guilds = True
 
-client = discord.Client(intents=intents)
+DESCRITPTION = """Bot to talk to ai characters!"""
 
+client = commands.Bot(command_prefix="!", description=DESCRITPTION, intents=intents)
 groq_client = groq.Groq(api_key=os.getenv("GROQ_KEY"))
 
 running_bots = {}
@@ -47,6 +48,66 @@ async def _grab_chat_history(c, limit=20):
     return old[1:]
 
 
+@client.command(description="General chat bot help")
+async def help(ctx: discord.Context):
+    if ctx.channel.id != BOT_CREATION_CHANNEL:
+        return
+    await ctx.reply(
+        "\n- ```!talk <bot_name>``` (starts a conversation with the bot) \n- ```!add <new_bot_name>``` (adds a new bot to the conversation **NOT IMPLEMENTED YET**) \n- ```!kill``` (deletes the conversation in the channel)\n",
+        delete_after=3,
+    )
+
+
+@client.command(description="Create a new chat bot")
+async def talk(ctx: discord.Context, *args: str):
+    if ctx.channel.id != BOT_CREATION_CHANNEL:
+        return
+
+    bot_name = " ".join(args).strip()
+    bot_category = client.get_channel(BOTS_CATEGORY_ID)
+
+    for c in bot_category.text_channels:
+        if c.name == bot_name:
+            await ctx.reply(
+                f"Character channel already created! {c.mention} (kill it with !kill to create a new chat)"
+            )
+            return
+
+    new_channel = await bot_category.create_text_channel(name=bot_name)
+
+    running_bots[new_channel.id] = {
+        "bot_name": bot_name,
+        "messages": [sys_message(bot_name)],
+    }
+
+    res = request(
+        "GET",
+        f"https://api.giphy.com/v1/gifs/search?api_key={os.getenv('GIPHY_KEY')}&q={bot_name}",
+    )
+
+    json = res.json()
+
+    gifs = json.get("data", [])
+
+    gif_url = ""
+
+    if len(gifs) != 0:
+        try:
+            gif_url = gifs[0]["images"]["original"]["url"]
+        except Exception as e:
+            print(f"No gif was found: {str(e)}")
+
+    if gif_url:
+        await new_channel.send(f"{gif_url}")
+
+    await new_channel.send(f"{ctx.author.mention} started a convo with {bot_name}")
+
+    await ctx.reply(
+        f"Go chat with {bot_name} in {new_channel.mention}!", delete_after=3
+    )
+    await ctx.message.delete(delay=3)
+
+
 @client.event
 async def on_ready():
 
@@ -64,7 +125,7 @@ async def on_ready():
 
 
 @client.event
-async def on_message(message):
+async def on_message(message: discord.Message):
     if message.author == client.user:
         return
 
@@ -106,60 +167,6 @@ async def on_message(message):
         await message.channel.send(
             f"{running_bots[message.channel.id]['bot_name']}: {response}"
         )
-
-    elif message.channel.id == BOT_CREATION_CHANNEL:
-        if message.content.startswith("!talk"):
-
-            s = message.content.split(" ")
-
-            if len(s) < 2:
-                await message.reply("No character specified")
-                return
-
-            bot_name = " ".join(s[1:]).strip()
-            bot_category = client.get_channel(BOTS_CATEGORY_ID)
-
-            for c in bot_category.text_channels:
-                if c.name == bot_name:
-                    await message.reply(
-                        f"Character channel already created! {c.mention} (kill it with !kill to create a new chat)"
-                    )
-                    return
-
-            new_channel = await bot_category.create_text_channel(name=bot_name)
-
-            running_bots[new_channel.id] = {
-                "bot_name": bot_name,
-                "messages": [sys_message(bot_name)],
-            }
-
-            res = request(
-                "GET",
-                f"https://api.giphy.com/v1/gifs/search?api_key={os.getenv('GIPHY_KEY')}&q={bot_name}",
-            )
-            json = res.json()
-
-            gifs = json.get("data", [])
-
-            gif_url = ""
-
-            if len(gifs) != 0:
-                try:
-                    gif_url = gifs[0]["images"]["original"]["url"]
-                except:
-                    pass
-
-            await message.reply(f"Go chat with {bot_name} in {new_channel.mention}!")
-
-            if gif_url:
-                await new_channel.send(f"{gif_url}")
-
-            await new_channel.send(f"{message.author} started a convo with {bot_name}")
-
-        elif message.content.startswith("!help"):
-            await message.reply(
-                "\n- ```!talk <bot_name>``` (starts a conversation with the bot) \n- ```!add <new_bot_name>``` (adds a new bot to the conversation **NOT IMPLEMENTED YET**) \n- ```!kill``` (deletes the conversation in the channel)\n"
-            )
 
 
 client.run(os.getenv("DISCORD_TOKEN"))
