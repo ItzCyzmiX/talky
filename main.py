@@ -76,8 +76,6 @@ async def on_message(message):
             return
             
         msg = message.content
-      
-        old_msgs = await _grab_chat_history(message.channel)
     
         new_msgs = [
                 *running_bots[message.channel.id]['messages'],
