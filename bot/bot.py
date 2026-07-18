@@ -1,81 +1,97 @@
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from bot.groq_api import groq_client
+from bot.groq_api import create_groq, send_msg_to_bot
+from bot.supabase import (
+    get_messages,
+    update_messages,
+    create_supabase,
+    get_bots_with_ids,
+)
 import os
-
-from bot.utils import _grab_chat_history, sys_message
-from bot.consts import BOTS_CATEGORY_ID, GUILD, DESCRITPTION
+from pprint import pprint
+from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID
+import asyncio
 
 load_dotenv()
 
-intents = discord.Intents.default()
-intents.message_content = True
-intents.guild_messages = True
-intents.messages = True
-intents.guilds = True
 
-bot = commands.Bot(command_prefix="!", description=DESCRITPTION, intents=intents)
+class Talky(commands.Bot):
+    def __init__(self, *, supabase, groq_client, **kwargs):
+        intents = discord.Intents.default()
+        intents.message_content = True
+        intents.guild_messages = True
+        intents.messages = True
+        intents.guilds = True
 
-running_bots = {}
+        super().__init__(command_prefix="!", description=DESCRITPTION, intents=intents)
 
+        self.supabase = supabase
+        self.groq_client = groq_client
+        self.running_bots = []
 
-@bot.event
-async def on_ready():
+    async def setup_hook(self):
+        await self.load_extension("bot.commands")
 
-    print(f"We have logged in as {bot.user}")
+    async def on_ready(self):
+        print(f"We have logged in as {self.user}")
 
-    bot_category = bot.get_channel(BOTS_CATEGORY_ID)
+        await self.tree.sync(guild=GUILD)
 
-    for c in bot_category.text_channels:
+        bot_category = self.get_channel(BOTS_CATEGORY_ID)
 
-        old = await _grab_chat_history(c)
+        channels = bot_category.text_channels
+        channel_ids = list(map(lambda x: x.id, channels))
 
-        running_bots[c.id] = {
-            "bot_name": c.name,
-            "messages": [sys_message(c.name), *old],
-        }
+        await asyncio.sleep(0.3)
 
-    await bot.tree.sync(guild=GUILD)
+        db_bot_ids = await get_bots_with_ids(self.supabase, channel_ids)
 
+        for c in channels:
+            if c.id not in db_bot_ids:
+                await c.delete()
+                continue
 
-@bot.event
-async def on_message(message: discord.Message):
+            self.running_bots.append(c.id)
 
-    if message.author == bot.user:
-        return
+    async def on_message(self, message: discord.Message):
 
-    if message.channel.id in running_bots:
+        if message.author == self.user:
+            return
 
-        msg = message.content
+        if message.channel.id in self.running_bots:
 
-        new_msgs = [
-            *running_bots[message.channel.id]["messages"],
-            {"role": "user", "content": f"({message.author.name}) {msg}"},
-        ]
+            msg = message.content
 
-        completion = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=new_msgs,
-            temperature=1,
-            max_completion_tokens=2048,
-            top_p=1,
-            stream=False,
-            stop=None,
-        )
+            old_msgs = await get_messages(self.supabase, message.channel.id)
 
-        response = completion.choices[0].message.content
+            if old_msgs is None:
+                return
 
-        new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
+            new_msgs = [
+                *old_msgs,
+                {"role": "user", "content": f"({message.author.name}) {msg}"},
+            ]
 
-        running_bots[message.channel.id]["messages"] = new_msgs
+            did_update = await update_messages(
+                self.supabase, message.channel.id, {"messages": new_msgs}
+            )
 
-        await message.channel.send(
-            f"{running_bots[message.channel.id]['bot_name']}: {response}"
-        )
+            if not did_update:
+                return
+
+            response = await send_msg_to_bot(self.groq_client, new_msgs)
+
+            if response is None:
+                return
+
+            await message.channel.send(f"{message.channel.name}: {response}")
+
+            new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
 
 
 async def run_bot():
-    async with bot:
-        await bot.load_extension("bot.commands")
-        await bot.start(os.getenv("DISCORD_TOKEN"))
+    supabase_client = await create_supabase()
+    groq_client = create_groq()
+    bot = Talky(supabase=supabase_client, groq_client=groq_client)
+    await bot.start(os.getenv("DISCORD_TOKEN"))
