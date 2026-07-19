@@ -47,10 +47,10 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 
 | Field | Type | Purpose |
 |---|---|---|
-| `id` | int | Discord channel ID (1:1 mapping) |
-| `admins` | int[] | User IDs with admin permissions |
+| `id` | bigint | Discord channel ID (1:1 mapping) |
+| `admins` | text[] | User IDs with admin permissions |
 | `messages` | jsonb | Full message history for the channel |
-| `model` | text | Selected AI model (defaults to "llama") |
+| `gpt` | text | Selected AI model (defaults to "llama") |
 | `bot_name` | text | Name of the chatbot persona |
 
 ### Message Flow
@@ -76,31 +76,6 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 | `/add` | `<user>` | Add user to private chat | Admin only |
 | `/kick` | `<user>` | Remove user from private chat | Admin only |
 | `/kill` | — | Delete the chatbot channel permanently | Admin only |
-
-### Command Examples
-
-```
-# Create a public chat with ChatGPT persona
-/talk bot_name: ChatGPT private: false
-
-# Create a private group chat
-/talk bot_name: SecretBot private: true
-
-# Add a friend to your private chat
-/add user: @JohnDoe
-
-# Switch to a different AI model
-/gpt → Select from 24+ options
-
-# Promote someone to admin
-/admin user: @Manager
-
-# Remove someone from private chat
-/kick user: @SpamBot
-
-# Delete the entire channel and data
-/kill
-```
 
 ---
 
@@ -139,11 +114,11 @@ Create a table named `chats` with these columns:
 
 | Column | Type | Nullable | Notes |
 |--------|------|----------|-------|
-| `id` | bigint | ✅ | Discord channel ID (primary key) |
+| `id` | bigint | ❌ | Discord channel ID (primary key) |
 | `admins` | text[] | ✅ | Array of user ID strings |
 | `bot_name` | text | ✅ | Name of the chatbot |
 | `messages` | jsonb | ✅ | Message history JSON |
-| `model` | text | ✅ | Selected AI model (defaults to "llama") |
+| `gpt` | text | ✅ | Selected AI model (defaults to "llama") |
 
 **Example SQL:**
 ```sql
@@ -152,7 +127,7 @@ CREATE TABLE chats (
   admins TEXT[],
   bot_name TEXT,
   messages JSONB,
-  model TEXT DEFAULT 'llama'
+  gpt TEXT DEFAULT 'llama'
 );
 ```
 
@@ -163,6 +138,9 @@ Create a `.env` file in the project root:
 ```env
 # Discord
 DISCORD_TOKEN=your_discord_bot_token
+GUILD_ID=your_discord_guild_id
+BOTS_CATEGORY_ID=your_category_id
+BOT_CREATION_CHANNEL_ID=your_channel_id
 
 # AI Models
 GROQ_API_KEY=your_groq_api_key
@@ -176,31 +154,19 @@ SUPABASE_URL=your_supabase_project_url
 SUPABASE_SECRET_KEY=your_supabase_service_role_key
 ```
 
-### 5. Configure Constants
-
-Edit `bot/consts.py` and set your Discord IDs:
-
-```python
-import discord
-
-# Your Discord server ID
-GUILD = discord.Object(id=YOUR_GUILD_ID)
-
-# Category where chatbot channels are created
-BOTS_CATEGORY_ID = YOUR_CATEGORY_ID
-
-# Channel where /talk command can be used (e.g., #bot-creation)
-BOT_CREATION_CHANNEL = YOUR_CHANNEL_ID
-
-# Optional customization
-DESCRITPTION = "Bot to talk to ai characters!"
-DELETE_DELAY = 15  # Seconds before ephemeral messages disappear
-MESSAGE_HISTOY_LIMIT = 30  # Last N messages kept in memory
-```
-
-**How to find your IDs:**
+**How to find Discord IDs:**
 1. Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode)
 2. Right-click on server/category/channel → "Copy Server/Channel ID"
+
+### 5. Optional Configuration
+
+Edit `bot/consts.py` to customize:
+
+```python
+DESCRITPTION = "Bot to talk to ai characters!"  # Bot description
+DELETE_DELAY = 15                                # Seconds before ephemeral messages disappear
+MESSAGE_HISTOY_LIMIT = 30                        # Last N messages kept in memory
+```
 
 ### 6. Run the Bot
 
@@ -228,96 +194,6 @@ Or manually:
 
 ---
 
-## 📚 Example Workflows
-
-### Workflow 1: Group Brainstorm
-```
-Admin: /talk bot_name: Brainstorm private: true
-Admin: /add user: @TeamMember1
-Admin: /add user: @TeamMember2
-Everyone: Chat with the AI in the private channel
-Admin: /gpt → Select a creative model like "Mistral Large"
-Admin: /kill → Delete when done
-```
-
-### Workflow 2: Public Learning Channel
-```
-Teacher: /talk bot_name: Python-Tutor private: false
-Teacher: /admin user: @Student1
-Students: Ask questions, get AI-powered explanations
-Teacher: /gpt → Switch between models for different explanations
-Teacher: /kill → Archive the conversation later
-```
-
-### Workflow 3: Switching AI Models
-```
-/talk bot_name: MultiBot private: false
-(Users chat with Llama)
-Admin: /gpt → Switch to "Mistral Large" for complex analysis
-Admin: /gpt → Switch to "Dolphin Mixtral" for creative writing
-(Auto-fallback to Llama if selected model fails)
-```
-
----
-
-## ⚙️ Advanced Configuration
-
-### Changing Memory Limit
-
-Edit `bot/consts.py`:
-```python
-MESSAGE_HISTOY_LIMIT = 50  # Increase to 50 recent messages
-```
-
-Larger values = more context but slower API calls.
-
-### Adding More OpenRouter Models
-
-Models are fetched from OpenRouter at bot startup. To customize:
-- Edit the filter in `bot/character_api.py` lines 20-27
-- Currently filters for free models; you can remove `min_price=0, max_price=0` to allow paid models
-
-### Custom System Prompts
-
-Edit `bot/utils.py`:
-```python
-def sys_message(bot_name: str):
-    return {
-        "role": "system",
-        "content": f"You are {bot_name}. Your custom instructions here...",
-    }
-```
-
----
-
-## 🔧 Troubleshooting
-
-### Bot doesn't respond
-- Check Discord channel IDs in `bot/consts.py`
-- Verify Supabase connection with correct credentials
-- Check bot has "Manage Channels" permission
-
-### API Key errors
-- Verify `.env` file is in project root
-- Check for typos in `GROQ_API_KEY`, `OPENROUTER_KEY`, `SUPABASE_SECRET_KEY`
-- Ensure keys haven't expired or been revoked
-
-### Model selection not working
-- Check OpenRouter API key is valid
-- Verify internet connection (models are fetched on startup)
-- Check `bot.openrouter_models` has entries: add `print(self.openrouter_models)` to `on_ready()`
-
-### Private chat permissions failing
-- Ensure bot has "Manage Channels" Discord permission
-- Check user isn't already added/removed from channel
-
-### Supabase connection fails
-- Test credentials: `supabase.from_("chats").select("id").execute()`
-- Verify table `chats` exists with correct columns
-- Check network connectivity and firewall rules
-
----
-
 ## 📦 Dependencies
 
 - **discord.py 2.7.1** — Discord bot framework
@@ -338,34 +214,6 @@ Found a bug or have a feature idea? Feel free to open an issue or submit a PR!
 ## 📝 License
 
 This project is open source and available under the MIT License.
-
----
-
-## 🎯 Roadmap
-
-- [ ] Conversation exports (JSON/PDF)
-- [ ] Custom AI system prompts per channel
-- [ ] Message reactions for model votes
-- [ ] Rate limiting per user
-- [ ] Web dashboard for management
-- [ ] Multi-language support
-
----
-
-## 💡 Tips & Tricks
-
-**Tip 1:** Use `/gpt` to test different models on the same conversation
-- Great for comparing creative vs analytical responses
-
-**Tip 2:** Private chats are perfect for sensitive discussions
-- Admins can kick users without awkward public notifications
-
-**Tip 3:** Tag the channel name in bot responses
-- Feature: `await message.channel.send(f"{message.channel.name}: {response}")`
-- Helps in multi-chat scenarios
-
-**Tip 4:** Use system prompts to set personality
-- Edit `sys_message()` to make bots role-play specific personas
 
 ---
 
