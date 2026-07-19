@@ -10,27 +10,6 @@ def sys_message(bot_name: str):
     }
 
 
-async def _grab_chat_history(bot, c, limit=20):
-
-    old = []
-
-    async for message in c.history(limit=limit):
-
-        old.insert(
-            0,
-            {
-                "role": "assistant" if message.author == bot.user else "user",
-                "content": (
-                    f"({message.author.name}) {message.content}"
-                    if ":" not in message.content
-                    else message.content.split(":")[1].strip()
-                ),
-            },
-        )
-
-    return old[1:]
-
-
 async def fetch_gif(bot_name: str) -> str:
     url = "https://api.giphy.com/v1/gifs/search"
     params = {"api_key": os.getenv("GIPHY_KEY"), "q": bot_name}
