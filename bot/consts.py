@@ -1,10 +1,14 @@
 import discord
+from dotenv import load_dotenv
+import os
 
-GUILD = discord.Object(id=1064253317779308564)
+load_dotenv()
 
-BOTS_CATEGORY_ID = 1527758935916937409
+GUILD = discord.Object(id=int(os.getenv("GUILD_ID")))
 
-BOT_CREATION_CHANNEL = 1527794645336199308
+BOTS_CATEGORY_ID = int(os.getenv("BOTS_CATEGORY_ID"))
+
+BOT_CREATION_CHANNEL = int(os.getenv("BOT_CREATION_CHANNEL_ID"))
 
 DESCRITPTION = """Bot to talk to ai characters!"""
 
