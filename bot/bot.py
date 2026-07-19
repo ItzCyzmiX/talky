@@ -1,7 +1,7 @@
 import discord
 from discord.ext import commands
 from dotenv import load_dotenv
-from bot.character_api import send_msg_to_bot
+from bot.character_api import send_msg_to_bot, _get_openrouter_models
 from bot.supabase import (
     get_messages,
     update_messages,
@@ -11,6 +11,7 @@ from bot.supabase import (
 import os
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
 import asyncio
+from pprint import pprint
 
 load_dotenv()
 
@@ -51,6 +52,9 @@ class Talky(commands.Bot):
                 continue
 
             self.running_bots.append(c.id)
+        await asyncio.sleep(0.5)
+        res = await _get_openrouter_models()
+        pprint(res)
 
     async def on_message(self, message: discord.Message):
 
@@ -59,6 +63,7 @@ class Talky(commands.Bot):
 
         if message.channel.id in self.running_bots:
             async with message.channel.typing():
+
                 msg = message.content
 
                 old_msgs = await get_messages(self.supabase, message.channel.id)
@@ -73,6 +78,13 @@ class Talky(commands.Bot):
 
                 new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
 
+                response = await send_msg_to_bot(new_msgs)
+
+                if response is None:
+                    return
+
+                new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
+
                 did_update = await update_messages(
                     self.supabase, message.channel.id, {"messages": new_msgs}
                 )
@@ -80,14 +92,7 @@ class Talky(commands.Bot):
                 if not did_update:
                     return
 
-                response = await send_msg_to_bot(new_msgs)
-
-                if response is None:
-                    return
-
                 await message.channel.send(f"{message.channel.name}: {response}")
-
-                new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
 
 
 async def run_bot():

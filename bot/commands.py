@@ -5,7 +5,6 @@ from discord.ext import commands
 import asyncio
 from typing import Optional
 
-
 from bot.consts import BOT_CREATION_CHANNEL, GUILD, BOTS_CATEGORY_ID, DELETE_DELAY
 from bot.bot import Talky
 from bot.utils import sys_message, fetch_gif
@@ -150,13 +149,19 @@ class Commands(commands.Cog):
                 delete_after=DELETE_DELAY,
             )
 
-    @app_commands.command(name="add", description="Add users to private chat")
-    @app_commands.describe(user="Users to add to this private chat")
+    @app_commands.command(name="add", description="Add user to private chat")
+    @app_commands.describe(user="User to add to this private chat")
     @app_commands.guilds(GUILD)
     async def add(self, interaction: discord.Interaction, user: discord.Member):
 
         if interaction.channel.id in self.bot.running_bots:
-
+            if user == self.bot.user:
+                await interaction.response.send_message(
+                    "Im already in every conversation :)",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
             try:
                 am_admin = await is_admin(
                     self.bot.supabase, interaction.channel.id, interaction.user.id
@@ -199,12 +204,84 @@ class Commands(commands.Cog):
                 )
 
                 await interaction.response.send_message(
-                    f"{user.mention} has ben added to the private conversation!",
+                    f"{user.mention} has been added to the private conversation!",
                     delete_after=DELETE_DELAY,
                 )
             except Exception as e:
                 await interaction.response.send_message(
-                    "Couldnt add {user.name} to private chat",
+                    f"Couldnt add {user.name} to private chat",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                print("Error adding user to private chat: ", str(e))
+                return
+
+    @app_commands.command(name="kick", description="kick user from private chat")
+    @app_commands.describe(user="User to add to this private chat")
+    @app_commands.guilds(GUILD)
+    async def kick(self, interaction: discord.Interaction, user: discord.Member):
+
+        if interaction.channel.id in self.bot.running_bots:
+            if user == self.bot.user:
+                await interaction.response.send_message(
+                    "You cant kick me :)",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+            try:
+                am_admin = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                )
+
+                if not am_admin:
+                    await interaction.response.send_message(
+                        "You must be admin of this conversation!",
+                        ephemeral=True,
+                        delete_after=DELETE_DELAY,
+                    )
+                    return
+
+                guild = interaction.guild
+                all_overwrites = interaction.channel.overwrites_for(guild.default_role)
+                selected_user_overwrites = interaction.channel.overwrites_for(user)
+
+                if all_overwrites.view_channel:  # chat is public
+                    await interaction.response.send_message(
+                        "This conversation is public!",
+                        ephemeral=True,
+                        delete_after=DELETE_DELAY,
+                    )
+                    return
+
+                if not selected_user_overwrites.view_channel:
+                    await interaction.response.send_message(
+                        "This user is not in the private conversation",
+                        ephemeral=True,
+                        delete_after=DELETE_DELAY,
+                    )
+                    return
+
+                user_overwrite = discord.PermissionOverwrite(
+                    view_channel=False, send_messages=False, embed_links=False
+                )
+
+                await interaction.channel.set_permissions(
+                    user, overwrite=user_overwrite, reason="Kicked to private chat"
+                )
+
+                await interaction.response.send_message(
+                    f"{user.mention} has been kicked to the private conversation!",
+                    delete_after=DELETE_DELAY,
+                )
+
+                await user.send(
+                    f"{interaction.user.mention} has kicked you from there private chat with {interaction.channel.name}!"
+                )
+
+            except Exception as e:
+                await interaction.response.send_message(
+                    f"Couldnt kick {user.name} to private chat",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
@@ -220,7 +297,7 @@ class Commands(commands.Cog):
         self,
         interaction: discord.Interaction,
         bot_name: str,
-        private: Optional[bool] = False,
+        private: Optional[bool],
     ):
         try:
             if interaction.channel.id != BOT_CREATION_CHANNEL:
@@ -260,7 +337,7 @@ class Commands(commands.Cog):
                 new_channel = await bot_category.create_text_channel(name=bot_name)
 
             while not new_channel:
-                asyncio.sleep(0.4)
+                await asyncio.sleep(0.4)
 
             self.bot.running_bots.append(new_channel.id)
 

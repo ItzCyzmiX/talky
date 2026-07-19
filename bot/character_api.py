@@ -6,55 +6,40 @@ from typing import Literal
 
 load_dotenv()
 
-groq_client = AsyncGroq(api_key=os.getenv("GROQ_API"))
+groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
-starting_router: Literal["VENICE", "LLAMA"] = "VENICE"  # LLAMA OR VENICE
+to_ai_name = {"POOLSIDE": "poolside/laguna-xs-2.1:free"}
 
 
-async def send_msg_to_bot(messages: [dict]) -> str:
+async def send_msg_to_bot(messages: [dict], model="LLAMA") -> str:
     global groq_client, starting_router
 
-    print(f"Using {starting_router}")
-
-    if starting_router == "VENICE":
-        or_ok = await _use_openrouter(messages)
-        if or_ok is not None:
-            return or_ok
-        else:
-            gk_ok = await _use_groq(messages)
-            if gk_ok is not None:
-                starting_router = "LLAMA"
-                return gk_ok
+    if model == "LLAMA":
+        return _use_groq(messages)
     else:
-        gk_ok = await _use_groq(messages)
-        if gk_ok is not None:
-            return gk_ok
+        if model in to_ai_name.key():
+            return _use_openrouter(messages, to_ai_name[model])
         else:
-            or_ok = await _use_openrouter(messages)
-            if or_ok is not None:
-                starting_router = "VENICE"
-                return or_ok
-
-    return False
+            return _use_openrouter(messages, model)
 
 
-def set_llm(new_llm: Literal["VENICE", "LLAMA"]):
-    global starting_router
+async def _get_openrouter_models():
+    try:
+        async with OpenRouter(api_key=os.getenv("OPENROUTER_KEY")) as client:
+            res = await client.models.list_async(min_price=0, max_price=0)
 
-    starting_router = new_llm
+            return res
+
+    except Exception as e:
+        print(f"Openrouter errored out ({str(e)}), using groq...")
+        return None
 
 
-def get_cur_llm() -> Literal["VENICE", "LLAMA"]:
-    global starting_router
-
-    return starting_router
-
-
-async def _use_openrouter(messages: [dict]):
+async def _use_openrouter(messages: [dict], model: str = "poolside/laguna-xs-2.1:free"):
     try:
         async with OpenRouter(api_key=os.getenv("OPENROUTER_KEY")) as client:
             res = await client.chat.send_async(
-                model="cognitivecomputations/dolphin-mistral-24b-venice-edition:free",
+                model=model,
                 messages=messages,
             )
 
@@ -77,6 +62,7 @@ async def _use_groq(messages: [dict]):
         )
 
         return completion.choices[0].message.content
+
     except Exception as groq_e:
         print(f"Groq errored out ({str(groq_e)})")
         return False
