@@ -199,7 +199,7 @@ class Commands(commands.Cog):
                 )
 
                 await interaction.response.send_message(
-                    "{user.mention} has benn added to the private conversation!",
+                    f"{user.mention} has benn added to the private conversation!",
                     delete_after=DELETE_DELAY,
                 )
             except Exception as e:
