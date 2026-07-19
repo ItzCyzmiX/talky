@@ -34,7 +34,7 @@ class ModelSelect(discord.ui.Select):
         )
 
         ok = await change_bot_gpt(self.supabase, self._channel_id, chosen_model)
-
+        asyncio.sleep(0.3)
         if not ok:
             await interaction.response.send_message(
                 "Couldn't change chat AI model, using default llama",
