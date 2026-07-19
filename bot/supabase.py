@@ -1,7 +1,5 @@
 from supabase import acreate_client, AsyncClient
 import os
-import asyncio
-from pprint import pprint
 
 
 async def create_supabase():
@@ -11,50 +9,58 @@ async def create_supabase():
     return supabase
 
 
-async def update_messages(supabase: AsyncClient, id: int, new_msgs: dict):
+async def update_messages(supabase: AsyncClient, _id: int, new_msgs: dict):
     try:
         _ = (
             await supabase.from_("chats")
             .update({"messages": new_msgs})
-            .eq("id", id)
+            .eq("id", _id)
             .execute()
         )
         return True
-    except:
+    except Exception as e:
+        print("Error updating messages by channel id: ", str(e))
         return False
 
 
-async def get_messages(supabase: AsyncClient, id: int):
-    res = await supabase.from_("chats").select("messages").eq("id", id).execute()
+async def get_messages(supabase: AsyncClient, _id: int):
+    res = await supabase.from_("chats").select("messages").eq("id", _id).execute()
 
     try:
         return res.dict()["data"][0]["messages"]["messages"]
-    except:
-        return None
+    except Exception as e:
+        print("Error getting messages by channel id: ", str(e))
+        return False
 
 
 async def new_bot(
-    supabase: AsyncClient, id: int, bot_name: str, admins: [int], messages: dict
+    supabase: AsyncClient, _id: int, bot_name: str, admins: [int], messages: dict
 ):
     try:
         _ = (
             await supabase.from_("chats")
             .upsert(
-                {"id": id, "admins": admins, "bot_name": bot_name, "messages": messages}
+                {
+                    "id": _id,
+                    "admins": admins,
+                    "bot_name": bot_name,
+                    "messages": messages,
+                }
             )
             .execute()
         )
         return True
-    except:
+    except Exception as e:
+        print("Error creating bot: ", str(e))
         return False
 
 
-async def is_admin(supabase: AsyncClient, id: int, user_id: int):
+async def is_admin(supabase: AsyncClient, _id: int, user_id: int):
 
     res = (
         await supabase.from_("chats")
         .select("admins")
-        .eq("id", id)
+        .eq("id", _id)
         .contains("admins", [str(user_id)])
         .execute()
     )
@@ -62,15 +68,17 @@ async def is_admin(supabase: AsyncClient, id: int, user_id: int):
 
     try:
         return str(user_id) in dict_["data"][0]["admins"]
-    except:
+    except Exception as e:
+        print("Error checking if user is admin: ", str(e))
         return False
 
 
-async def remove_bot(supabase: AsyncClient, id: int):
+async def remove_bot(supabase: AsyncClient, _id: int):
     try:
-        _ = await supabase.from_("chats").delete().eq("id", id).execute()
+        _ = await supabase.from_("chats").delete().eq("id", _id).execute()
         return True
-    except:
+    except Exception as e:
+        print("Error removing bot by id: ", str(e))
         return False
 
 
@@ -95,15 +103,35 @@ async def get_bots_with_ids(supabase: AsyncClient, ids: [int]):
     json = res.dict()
     try:
         return list(map(lambda x: x["id"], json["data"]))
-    except:
+    except Exception as e:
+        print("Error getting bots by ids: ", str(e))
         return []
 
 
-async def get_bot(supabase: AsyncClient, id: int):
+async def get_bot(supabase: AsyncClient, _id: int):
 
-    res = await supabase.from_("chats").select("id").eq("id", id).execute()
+    res = await supabase.from_("chats").select("id").eq("id", _id).execute()
     try:
         return res.dict()["data"][0]
     except (KeyError, IndexError) as e:
         print(f"No such bot: {str(e)}")
-        return None
+        return False
+
+
+async def change_bot_gpt(supabase: AsyncClient, _id: int, model: str = "llama"):
+    try:
+        _ = await supabase.from_("chats").update({"gpt": model}).eq("id", _id).execute()
+        return True
+    except Exception as e:
+        print("Error changing bot's model: ", str(e))
+        return False
+
+
+async def get_chat_model(supabase: AsyncClient, _id: int):
+
+    res = await supabase.from_("chats").select("gpt").eq("id", _id).execute()
+    try:
+        return res.dict()["data"][0]["gpt"]
+    except (KeyError, IndexError) as e:
+        print(f"No such bot: {str(e)}")
+        return False

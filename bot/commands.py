@@ -8,7 +8,55 @@ from typing import Optional
 from bot.consts import BOT_CREATION_CHANNEL, GUILD, BOTS_CATEGORY_ID, DELETE_DELAY
 from bot.bot import Talky
 from bot.utils import sys_message, fetch_gif
-from bot.supabase import new_bot, remove_bot, is_admin, add_admin
+from bot.supabase import new_bot, remove_bot, is_admin, add_admin, change_bot_gpt
+
+
+class ModelSelect(discord.ui.Select):
+    def __init__(self, ai_models: list[str], channel_id: int, supabase):
+        options = [
+            discord.SelectOption(label=model, value=model.lower())
+            for model in ai_models
+        ]
+
+        self._channel_id = channel_id
+        self.supabase = supabase
+
+        super().__init__(
+            placeholder="Select AI Model", min_values=1, max_values=1, options=options
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+
+        chosen_model = (
+            "llama"
+            if self.values[0].lower() == "llama (default)"
+            else self.values[0].lower()
+        )
+
+        ok = await change_bot_gpt(self.supabase, self._channel_id, chosen_model)
+
+        if not ok:
+            await interaction.response.send_message(
+                "Couldn't change chat AI model, using default llama",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        await interaction.response.send_message(
+            f"This chat will now use {chosen_model}, in case of any error it will fall back to llama",
+            ephemeral=True,
+            delete_after=DELETE_DELAY,
+        )
+
+
+class ModelView(discord.ui.View):
+    def __init__(self, models: list[str], channel_id, supabase):
+        super().__init__(timeout=180)
+
+        self.add_item(
+            ModelSelect(ai_models=models, channel_id=channel_id, supabase=supabase)
+        )
 
 
 class Commands(commands.Cog):
@@ -207,9 +255,50 @@ class Commands(commands.Cog):
                     f"{user.mention} has been added to the private conversation!",
                     delete_after=DELETE_DELAY,
                 )
+
             except Exception as e:
                 await interaction.response.send_message(
                     f"Couldnt add {user.name} to private chat",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                print("Error adding user to private chat: ", str(e))
+                return
+
+    @app_commands.command(name="gpt", description="Change ai model used in chat")
+    @app_commands.guilds(GUILD)
+    async def gpt(self, interaction: discord.Interaction):
+
+        if interaction.channel.id in self.bot.running_bots:
+            try:
+                am_admin = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                )
+
+                if not am_admin:
+                    await interaction.response.send_message(
+                        "You must be admin of this conversation!",
+                        ephemeral=True,
+                        delete_after=DELETE_DELAY,
+                    )
+                    return
+
+                view = ModelView(
+                    models=["llama (default)", *self.bot.openrouter_models],
+                    channel_id=interaction.channel.id,
+                    supabase=self.bot.supabase,
+                )
+
+                await interaction.response.send_message(
+                    "Select an AI model:",
+                    view=view,
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+
+            except Exception as e:
+                await interaction.response.send_message(
+                    "Couldnt change ai model",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
@@ -350,6 +439,8 @@ class Commands(commands.Cog):
                     "messages": [sys_message(bot_name)],
                 },
             )
+
+            await asyncio.sleep(0.3)
 
             if not ok:
                 await interaction.response.send_message(

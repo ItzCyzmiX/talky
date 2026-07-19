@@ -7,11 +7,12 @@ from bot.supabase import (
     update_messages,
     create_supabase,
     get_bots_with_ids,
+    get_chat_model,
+    change_bot_gpt,
 )
 import os
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
 import asyncio
-from pprint import pprint
 
 load_dotenv()
 
@@ -28,6 +29,7 @@ class Talky(commands.Bot):
 
         self.supabase = supabase
         self.running_bots = []
+        self.openrouter_models = []
 
     async def setup_hook(self):
         await self.load_extension("bot.commands")
@@ -52,9 +54,13 @@ class Talky(commands.Bot):
                 continue
 
             self.running_bots.append(c.id)
-        await asyncio.sleep(0.5)
+
+        await asyncio.sleep(0.3)
         res = await _get_openrouter_models()
-        pprint(res)
+        for model in res.result.data:
+            self.openrouter_models.append(str(model.id))
+
+        self.openrouter_models = self.openrouter_models[:24]
 
     async def on_message(self, message: discord.Message):
 
@@ -66,9 +72,14 @@ class Talky(commands.Bot):
 
                 msg = message.content
 
+                model = await get_chat_model(self.supabase, message.channel.id)
+
                 old_msgs = await get_messages(self.supabase, message.channel.id)
 
                 if old_msgs is None:
+                    await message.channel.send(
+                        "Couldnt retreive messages data, try again", delete_after=10
+                    )
                     return
 
                 new_msgs = [
@@ -78,10 +89,25 @@ class Talky(commands.Bot):
 
                 new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
 
-                response = await send_msg_to_bot(new_msgs)
+                response = await send_msg_to_bot(new_msgs, model)
 
                 if response is None:
-                    return
+                    if model != "llama":
+                        ok = await change_bot_gpt(
+                            self.supabase, message.channel.id, "llama"
+                        )
+
+                        if not ok:
+                            await message.channel.send(
+                                "Couldnt send message, try again", delete_after=10
+                            )
+                        else:
+                            await message.channel.send(
+                                f"{model} failed to generating a response, reverted back to llama",
+                                delete_after=10,
+                            )
+                            await message.delete()
+                        return
 
                 new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
 
