@@ -74,7 +74,15 @@ class Commands(commands.Cog):
             return
 
         await interaction.response.send_message(
-            "\n- ```/talk <bot_name>``` (starts a conversation with the bot) \n- ```/kill``` (deletes the conversation in the channel)\n - ```/admin <user>``` (gives admin access to user)\n - ```/status``` (check if you are admin)\n",
+            """\n
+            - ```/talk <bot_name> <private>``` (starts a public or private conversation with the bot) \n
+            - ```/kill``` (deletes the conversation in the channel)\n
+            - ```/admin <user>``` (gives admin access to user)\n
+            - ```/status``` (check if you are admin)\n
+            - ```/add <user>``` (adds user to private chat)\n
+            - ```/kick <user>``` (kicks user from private chat)\n
+            - ```/gpt``` (changes ai model of the conversation)\n
+            """,
             ephemeral=True,
             delete_after=DELETE_DELAY,
         )
