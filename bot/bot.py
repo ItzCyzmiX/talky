@@ -12,7 +12,7 @@ from bot.supabase import (
 )
 import os
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
-import asyncio
+from asyncio import sleep
 
 load_dotenv()
 
@@ -44,7 +44,7 @@ class Talky(commands.Bot):
         channels = bot_category.text_channels
         channel_ids = list(map(lambda x: x.id, channels))
 
-        await asyncio.sleep(0.3)
+        await sleep(0.3)
 
         db_bot_ids = await get_bots_with_ids(self.supabase, channel_ids)
 
@@ -55,12 +55,8 @@ class Talky(commands.Bot):
 
             self.running_bots.append(c.id)
 
-        await asyncio.sleep(0.3)
-        res = await _get_openrouter_models()
-        for model in res.result.data:
-            self.openrouter_models.append(str(model.id))
-
-        self.openrouter_models = self.openrouter_models[:24]
+        await sleep(0.3)
+        self.openrouter_models = await _get_openrouter_models()
 
     async def on_message(self, message: discord.Message):
 
@@ -78,7 +74,7 @@ class Talky(commands.Bot):
 
                 if old_msgs is None:
                     await message.channel.send(
-                        "Couldnt retreive messages data, try again", delete_after=10
+                        "Couldn't retreive messages data, try again", delete_after=10
                     )
                     return
 
@@ -99,11 +95,11 @@ class Talky(commands.Bot):
 
                         if not ok:
                             await message.channel.send(
-                                "Couldnt send message, try again", delete_after=10
+                                "Couldn't send message, try again", delete_after=10
                             )
                         else:
                             await message.channel.send(
-                                f"{model} failed to generating a response, reverted back to llama",
+                                f"{model} failed to generate a response, reverted back to llama",
                                 delete_after=10,
                             )
                             await message.delete()

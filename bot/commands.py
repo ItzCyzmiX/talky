@@ -266,7 +266,7 @@ class Commands(commands.Cog):
 
             except Exception as e:
                 await interaction.response.send_message(
-                    f"Couldnt add {user.name} to private chat",
+                    f"Couldn't add {user.name} to private chat",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
@@ -310,7 +310,7 @@ class Commands(commands.Cog):
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
-                print("Error adding user to private chat: ", str(e))
+                print("Error changing ai model: ", str(e))
                 return
 
     @app_commands.command(name="kick", description="kick user from private chat")
@@ -436,8 +436,6 @@ class Commands(commands.Cog):
             while not new_channel:
                 await asyncio.sleep(0.4)
 
-            self.bot.running_bots.append(new_channel.id)
-
             ok = await new_bot(
                 self.bot.supabase,
                 new_channel.id,
@@ -457,6 +455,8 @@ class Commands(commands.Cog):
                     delete_after=DELETE_DELAY,
                 )
                 return
+
+            self.bot.running_bots.append(new_channel.id)
 
             await new_channel.send(
                 f"{interaction.user.mention} has started a{' private ' if private else ' '}conversation with {bot_name}!"
