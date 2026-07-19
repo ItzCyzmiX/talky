@@ -2,12 +2,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
+import asyncio
+from typing import Optional
+
+
 from bot.consts import BOT_CREATION_CHANNEL, GUILD, BOTS_CATEGORY_ID, DELETE_DELAY
 from bot.bot import Talky
 from bot.utils import sys_message, fetch_gif
 from bot.supabase import new_bot, remove_bot, is_admin, add_admin
-
-import asyncio
 
 
 class Commands(commands.Cog):
@@ -148,9 +150,78 @@ class Commands(commands.Cog):
                 delete_after=DELETE_DELAY,
             )
 
-    @app_commands.command(name="talk", description="Create a new chat bot")
+    @app_commands.command(name="add", description="Add users to private chat")
+    @app_commands.describe(user="Users to add to this private chat")
     @app_commands.guilds(GUILD)
-    async def talk(self, interaction: discord.Interaction, bot_name: str):
+    async def add(self, interaction: discord.Interaction, user: discord.Member):
+
+        if interaction.channel.id in self.bot.running_bots:
+
+            try:
+                am_admin = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                )
+
+                if not am_admin:
+                    await interaction.response.send_message(
+                        "You must be admin of this conversation!",
+                        ephemeral=True,
+                        delete_after=DELETE_DELAY,
+                    )
+                    return
+
+                guild = interaction.guild
+                all_overwrites = interaction.channel.overwrites_for(guild.default_role)
+                selected_user_overwrites = interaction.channel.overwrites_for(user)
+
+                if all_overwrites.view_channel:  # chat is public
+                    await interaction.response.send_message(
+                        "This conversation is public!",
+                        ephemeral=True,
+                        delete_after=DELETE_DELAY,
+                    )
+                    return
+
+                if selected_user_overwrites.view_channel:
+                    await interaction.response.send_message(
+                        "This user is already in the private conversation",
+                        ephemeral=True,
+                        delete_after=DELETE_DELAY,
+                    )
+                    return
+
+                user_overwrite = discord.PermissionOverwrite(
+                    view_channel=True, send_messages=True, embed_links=True
+                )
+
+                await interaction.channel.set_permissions(
+                    user, overwrite=user_overwrite, reason="Added to private chat"
+                )
+
+                await interaction.response.send_message(
+                    "{user.mention} has benn added to the private conversation!",
+                    delete_after=DELETE_DELAY,
+                )
+            except Exception as e:
+                await interaction.response.send_message(
+                    "Couldnt add {user.name} to private chat",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                print("Error adding user to private chat: ", str(e))
+                return
+
+    @app_commands.command(name="talk", description="Create a new chat bot")
+    @app_commands.describe(
+        bot_name="Name of the bot", private="If the chat is private or public"
+    )
+    @app_commands.guilds(GUILD)
+    async def talk(
+        self,
+        interaction: discord.Interaction,
+        bot_name: str,
+        private: Optional[bool] = False,
+    ):
         try:
             if interaction.channel.id != BOT_CREATION_CHANNEL:
                 await interaction.response.send_message(
@@ -169,7 +240,24 @@ class Commands(commands.Cog):
                     )
                     return
 
-            new_channel = await bot_category.create_text_channel(name=bot_name)
+            if private:
+                guild = interaction.guild
+
+                overwrites = {
+                    guild.default_role: discord.PermissionOverwrite(view_channel=False),
+                    interaction.user: discord.PermissionOverwrite(
+                        view_channel=True, send_messages=True
+                    ),
+                    guild.me: discord.PermissionOverwrite(
+                        view_channel=True, send_messages=True
+                    ),
+                }
+
+                new_channel = await bot_category.create_text_channel(
+                    name=bot_name, overwrites=overwrites
+                )
+            else:
+                new_channel = await bot_category.create_text_channel(name=bot_name)
 
             while not new_channel:
                 asyncio.sleep(0.4)
@@ -195,7 +283,7 @@ class Commands(commands.Cog):
                 return
 
             await new_channel.send(
-                f"{interaction.user.mention} has started a conversation with {bot_name}!"
+                f"{interaction.user.mention} has started a{' private ' if private else ' '}conversation with {bot_name}!"
             )
 
             await interaction.response.send_message(
@@ -208,6 +296,7 @@ class Commands(commands.Cog):
 
             if gif_url:
                 await new_channel.send(f"{gif_url}")
+
         except Exception as e:
             print("ERROR TALKING: ", str(e))
 

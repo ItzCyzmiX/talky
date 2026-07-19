@@ -2,12 +2,13 @@ from dotenv import load_dotenv
 import os
 from openrouter import OpenRouter
 from groq import AsyncGroq
+from typing import Literal
 
 load_dotenv()
 
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API"))
 
-starting_router = "Openrouter"
+starting_router: Literal["VENICE", "LLAMA"] = "VENICE"  # LLAMA OR VENICE
 
 
 async def send_msg_to_bot(messages: [dict]) -> str:
@@ -15,14 +16,14 @@ async def send_msg_to_bot(messages: [dict]) -> str:
 
     print(f"Using {starting_router}")
 
-    if starting_router == "Openrouter":
+    if starting_router == "VENICE":
         or_ok = await _use_openrouter(messages)
         if or_ok is not None:
             return or_ok
         else:
             gk_ok = await _use_groq(messages)
             if gk_ok is not None:
-                starting_router = "Groq"
+                starting_router = "LLAMA"
                 return gk_ok
     else:
         gk_ok = await _use_groq(messages)
@@ -31,10 +32,22 @@ async def send_msg_to_bot(messages: [dict]) -> str:
         else:
             or_ok = await _use_openrouter(messages)
             if or_ok is not None:
-                starting_router = "Openrouter"
+                starting_router = "VENICE"
                 return or_ok
 
     return False
+
+
+def set_llm(new_llm: Literal["VENICE", "LLAMA"]):
+    global starting_router
+
+    starting_router = new_llm
+
+
+def get_cur_llm() -> Literal["VENICE", "LLAMA"]:
+    global starting_router
+
+    return starting_router
 
 
 async def _use_openrouter(messages: [dict]):
