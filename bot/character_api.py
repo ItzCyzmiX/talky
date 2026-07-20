@@ -10,10 +10,14 @@ groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 async def send_msg_to_bot(messages: list[dict], model="llama") -> str | None:
 
+    filtred_msgs = list(
+        map(lambda x: {"role": x["role"], "content": x["content"]}, messages)
+    )
+
     if model == "llama":
-        return await _use_groq(messages)
+        return await _use_groq(filtred_msgs)
     else:
-        return await _use_openrouter(messages, model)
+        return await _use_openrouter(filtred_msgs, model)
 
 
 async def _get_openrouter_models() -> list:

@@ -9,6 +9,7 @@ from bot.supabase import (
     get_bots_with_ids,
     get_chat_model,
     change_bot_gpt,
+    get_admins,
 )
 import os
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
@@ -28,7 +29,7 @@ class Talky(commands.Bot):
         super().__init__(command_prefix="!", description=DESCRITPTION, intents=intents)
 
         self.supabase = supabase
-        self.running_bots = []
+        self.running_bots = {}
         self.openrouter_models = []
 
     async def setup_hook(self):
@@ -53,34 +54,90 @@ class Talky(commands.Bot):
                 await c.delete()
                 continue
 
-            self.running_bots.append(c.id)
+            admins = await get_admins(self.supabase, c.id)
+            messages = await get_messages(self.supabase, c.id)
+            gpt = await get_chat_model(self.supabase, c.id)
+
+            self.running_bots[c.id] = {
+                "admins": admins,
+                "messages": messages,
+                "gpt": gpt,
+            }
 
         await sleep(0.3)
         self.openrouter_models = await _get_openrouter_models()
+
+    async def on_message_delete(self, message: discord.Message):
+        if message.author == self.user:
+            return
+
+        if message.channel.id in self.running_bots.keys():
+
+            for i in range(len(self.running_bots[message.channel.id]["messages"])):
+                index = (
+                    len(self.running_bots[message.channel.id]["messages"]) - i - 1
+                )  # bottom up for better performance
+
+                if (
+                    self.running_bots[message.channel.id]["messages"][index][
+                        "discord_message_id"
+                    ]
+                    == message.id
+                ):
+                    new_messages = self.running_bots[message.channel.id][
+                        "messages"
+                    ].copy()
+                    new_messages.pop(index)
+                    self.running_bots[message.channel.id]["messages"] = new_messages
+
+                    await update_messages(
+                        self.supabase, message.channel.id, {"messages": new_messages}
+                    )
+                    await sleep(0.3)
+                    break
 
     async def on_message(self, message: discord.Message):
 
         if message.author == self.user:
             return
 
-        if message.channel.id in self.running_bots:
+        if message.channel.id in self.running_bots.keys():
             async with message.channel.typing():
+
+                revert_to_llama = False
 
                 msg = message.content
 
-                model = await get_chat_model(self.supabase, message.channel.id)
+                model = self.running_bots.get(message.channel.id, {}).get("gpt", None)
 
-                old_msgs = await get_messages(self.supabase, message.channel.id)
+                old_msgs = self.running_bots.get(message.channel.id, {}).get(
+                    "messages", None
+                )
+
+                if model is None:
+                    model = await get_chat_model(self.supabase, message.channel.id)
+
+                    if model is None:
+                        model = "llama"
+                        revert_to_llama = True
 
                 if old_msgs is None:
-                    await message.channel.send(
-                        "Couldn't retreive messages data, try again", delete_after=10
-                    )
-                    return
+                    old_msgs = await get_messages(self.supabase, message.channel.id)
+
+                    if old_msgs is None:
+                        await message.channel.send(
+                            "Couldn't retreive messages data, try again",
+                            delete_after=10,
+                        )
+                        return
 
                 new_msgs = [
                     *old_msgs,
-                    {"role": "user", "content": f"({message.author.name}) {msg}"},
+                    {
+                        "role": "user",
+                        "content": f"({message.author.name}) {msg}",
+                        "discord_message_id": message.id,
+                    },
                 ]
 
                 new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
@@ -89,32 +146,57 @@ class Talky(commands.Bot):
 
                 if response is None:
                     if model != "llama":
-                        ok = await change_bot_gpt(
-                            self.supabase, message.channel.id, "llama"
+
+                        await message.channel.send(
+                            f"{model} failed to generate a response, using llama...",
+                            delete_after=10,
                         )
 
-                        if not ok:
+                        response = await send_msg_to_bot(new_msgs, "llama")
+                        revert_to_llama = True
+
+                        if response is None:
                             await message.channel.send(
-                                "Couldn't send message, try again", delete_after=10
-                            )
-                        else:
-                            await message.channel.send(
-                                f"{model} failed to generate a response, reverted back to llama",
+                                f"{model} failed to generate a response, try again",
                                 delete_after=10,
                             )
-                            await message.delete()
+                            await change_bot_gpt(message.channel.id, "llama")
+
                         return
 
-                new_msgs = [*new_msgs, {"role": "assistant", "content": response}]
+                response_message = await message.channel.send(
+                    f"{message.channel.name}: {response}"
+                )
+
+                new_msgs = [
+                    *new_msgs,
+                    {
+                        "role": "assistant",
+                        "content": response,
+                        "discord_message_id": response_message.id,
+                    },
+                ]
 
                 did_update = await update_messages(
                     self.supabase, message.channel.id, {"messages": new_msgs}
                 )
 
                 if not did_update:
-                    return
+                    await response_message.delete()
 
-                await message.channel.send(f"{message.channel.name}: {response}")
+                self.running_bots[message.channel.id]["messages"] = new_msgs
+
+                if revert_to_llama:
+                    await change_bot_gpt(message.channel.id, "llama")
+
+    @tree.context_menu(name="Delete")
+    async def process_message(
+        interaction: discord.Interaction, message: discord.Message
+    ):
+
+        await interaction.response.send_message(
+            f"You selected a message sent by {message.author}: '{message.content}'"
+        )
 
 
 async def run_bot():

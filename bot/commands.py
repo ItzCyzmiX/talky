@@ -12,14 +12,14 @@ from bot.supabase import new_bot, remove_bot, is_admin, add_admin, change_bot_gp
 
 
 class ModelSelect(discord.ui.Select):
-    def __init__(self, ai_models: list[str], channel_id: int, supabase):
+    def __init__(self, ai_models: list[str], channel_id: int, bot: Talky):
         options = [
             discord.SelectOption(label=model, value=model.lower())
             for model in ai_models
         ]
 
         self._channel_id = channel_id
-        self.supabase = supabase
+        self.bot = bot
 
         super().__init__(
             placeholder="Select AI Model", min_values=1, max_values=1, options=options
@@ -33,8 +33,8 @@ class ModelSelect(discord.ui.Select):
             else self.values[0].lower()
         )
 
-        ok = await change_bot_gpt(self.supabase, self._channel_id, chosen_model)
-        asyncio.sleep(0.3)
+        ok = await change_bot_gpt(self.bot.supabase, self._channel_id, chosen_model)
+        await asyncio.sleep(0.3)
         if not ok:
             await interaction.response.send_message(
                 "Couldn't change chat AI model, using default llama",
@@ -42,6 +42,8 @@ class ModelSelect(discord.ui.Select):
                 delete_after=DELETE_DELAY,
             )
             return
+
+        self.bot.running_bots[self._channel_id]["gpt"] = chosen_model
 
         await interaction.response.send_message(
             f"This chat will now use {chosen_model}, in case of any error it will fall back to llama",
@@ -51,12 +53,10 @@ class ModelSelect(discord.ui.Select):
 
 
 class ModelView(discord.ui.View):
-    def __init__(self, models: list[str], channel_id, supabase):
+    def __init__(self, models: list[str], channel_id, bot):
         super().__init__(timeout=180)
 
-        self.add_item(
-            ModelSelect(ai_models=models, channel_id=channel_id, supabase=supabase)
-        )
+        self.add_item(ModelSelect(ai_models=models, channel_id=channel_id, bot=bot))
 
 
 class Commands(commands.Cog):
@@ -90,10 +90,20 @@ class Commands(commands.Cog):
     @app_commands.command(name="status", description="Get if you are admin or not")
     @app_commands.guilds(GUILD)
     async def status(self, interaction: discord.Interaction):
-        if interaction.channel.id in self.bot.running_bots:
-            am_admin = await is_admin(
-                self.bot.supabase, interaction.channel.id, interaction.user.id
+        if interaction.channel.id in self.bot.running_bots.keys():
+            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                "admins", None
             )
+
+            am_admin = False
+
+            if admins is None:
+                am_admin = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                )
+            else:
+                am_admin = interaction.user.id in admins
+
             msg = "You are" + (" " if am_admin else " not ") + "admin"
             await interaction.response.send_message(
                 msg,
@@ -105,12 +115,22 @@ class Commands(commands.Cog):
     @app_commands.describe(target="The user you want to give admin to")
     @app_commands.guilds(GUILD)
     async def admin(self, interaction: discord.Interaction, target: discord.Member):
-        if interaction.channel.id in self.bot.running_bots:
+        if interaction.channel.id in self.bot.running_bots.keys():
 
             try:
-                can_give_admin = await is_admin(
-                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                    "admins", None
                 )
+
+                can_give_admin = False
+
+                if admins is None:
+                    can_give_admin = await is_admin(
+                        self.bot.supabase, interaction.channel.id, interaction.user.id
+                    )
+                else:
+                    can_give_admin = interaction.user.id in admins
+
                 if not can_give_admin:
                     await interaction.response.send_message(
                         "You must be admin of this conversation!",
@@ -143,6 +163,10 @@ class Commands(commands.Cog):
                 )
 
                 if ok:
+                    self.bot.running_bots[interaction.channel_id]["admins"] = [
+                        *self.bot.running_bots[interaction.channel_id]["admins"],
+                        target.id,
+                    ]
                     await interaction.response.send_message(
                         f"{target.mention} is now an admin of this conversation!",
                         delete_after=10,
@@ -166,11 +190,20 @@ class Commands(commands.Cog):
     @app_commands.guilds(GUILD)
     async def kill(self, interaction: discord.Interaction):
 
-        if interaction.channel.id in self.bot.running_bots:
+        if interaction.channel.id in self.bot.running_bots.keys():
             try:
-                can_kill = await is_admin(
-                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                    "admins", None
                 )
+
+                can_kill = False
+
+                if admins is None:
+                    can_kill = await is_admin(
+                        self.bot.supabase, interaction.channel.id, interaction.user.id
+                    )
+                else:
+                    can_kill = interaction.user.id in admins
 
                 if not can_kill:
                     await interaction.response.send_message(
@@ -188,7 +221,7 @@ class Commands(commands.Cog):
                         delete_after=DELETE_DELAY,
                     )
                     return
-                self.bot.running_bots.remove(interaction.channel.id)
+                del self.bot.running_bots[interaction.channel.id]
                 await interaction.channel.delete()
 
             except Exception as e:
@@ -210,7 +243,7 @@ class Commands(commands.Cog):
     @app_commands.guilds(GUILD)
     async def add(self, interaction: discord.Interaction, user: discord.Member):
 
-        if interaction.channel.id in self.bot.running_bots:
+        if interaction.channel.id in self.bot.running_bots.keys():
             if user == self.bot.user:
                 await interaction.response.send_message(
                     "Im already in every conversation :)",
@@ -219,9 +252,18 @@ class Commands(commands.Cog):
                 )
                 return
             try:
-                am_admin = await is_admin(
-                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                    "admins", None
                 )
+
+                am_admin = False
+
+                if admins is None:
+                    am_admin = await is_admin(
+                        self.bot.supabase, interaction.channel.id, interaction.user.id
+                    )
+                else:
+                    am_admin = interaction.user.id in admins
 
                 if not am_admin:
                     await interaction.response.send_message(
@@ -277,11 +319,20 @@ class Commands(commands.Cog):
     @app_commands.guilds(GUILD)
     async def gpt(self, interaction: discord.Interaction):
 
-        if interaction.channel.id in self.bot.running_bots:
+        if interaction.channel.id in self.bot.running_bots.keys():
             try:
-                am_admin = await is_admin(
-                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                    "admins", None
                 )
+
+                am_admin = False
+
+                if admins is None:
+                    am_admin = await is_admin(
+                        self.bot.supabase, interaction.channel.id, interaction.user.id
+                    )
+                else:
+                    am_admin = interaction.user.id in admins
 
                 if not am_admin:
                     await interaction.response.send_message(
@@ -294,7 +345,7 @@ class Commands(commands.Cog):
                 view = ModelView(
                     models=["llama (default)", *self.bot.openrouter_models],
                     channel_id=interaction.channel.id,
-                    supabase=self.bot.supabase,
+                    bot=self.bot,
                 )
 
                 await interaction.response.send_message(
@@ -318,7 +369,7 @@ class Commands(commands.Cog):
     @app_commands.guilds(GUILD)
     async def kick(self, interaction: discord.Interaction, user: discord.Member):
 
-        if interaction.channel.id in self.bot.running_bots:
+        if interaction.channel.id in self.bot.running_bots.keys():
             if user == self.bot.user:
                 await interaction.response.send_message(
                     "You cant kick me :)",
@@ -327,9 +378,18 @@ class Commands(commands.Cog):
                 )
                 return
             try:
-                am_admin = await is_admin(
-                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                    "admins", None
                 )
+
+                am_admin = False
+
+                if admins is None:
+                    am_admin = await is_admin(
+                        self.bot.supabase, interaction.channel.id, interaction.user.id
+                    )
+                else:
+                    am_admin = interaction.user.id in admins
 
                 if not am_admin:
                     await interaction.response.send_message(
@@ -364,11 +424,11 @@ class Commands(commands.Cog):
                 )
 
                 await interaction.channel.set_permissions(
-                    user, overwrite=user_overwrite, reason="Kicked to private chat"
+                    user, overwrite=user_overwrite, reason="Kicked from private chat"
                 )
 
                 await interaction.response.send_message(
-                    f"{user.mention} has been kicked to the private conversation!",
+                    f"{user.mention} has been kicked from the private conversation!",
                     delete_after=DELETE_DELAY,
                 )
 
@@ -428,13 +488,15 @@ class Commands(commands.Cog):
                 }
 
                 new_channel = await bot_category.create_text_channel(
-                    name=bot_name, overwrites=overwrites
+                    name=bot_name, overwrites=overwrites, slowmode_delay=5
                 )
             else:
-                new_channel = await bot_category.create_text_channel(name=bot_name)
+                new_channel = await bot_category.create_text_channel(
+                    name=bot_name, slowmode_delay=20
+                )
 
             while not new_channel:
-                await asyncio.sleep(0.4)
+                await asyncio.sleep(0.3)
 
             ok = await new_bot(
                 self.bot.supabase,
@@ -456,7 +518,11 @@ class Commands(commands.Cog):
                 )
                 return
 
-            self.bot.running_bots.append(new_channel.id)
+            self.bot.running_bots[new_channel.id] = {
+                "admins": [interaction.user.id],
+                "messages": [],
+                "gpt": "llama",
+            }
 
             await new_channel.send(
                 f"{interaction.user.mention} has started a{' private ' if private else ' '}conversation with {bot_name}!"

@@ -73,6 +73,17 @@ async def is_admin(supabase: AsyncClient, _id: int, user_id: int):
         return False
 
 
+async def get_admins(supabase: AsyncClient, _id: int):
+    res = await supabase.from_("chats").select("admins").eq("id", _id).execute()
+    dict_ = res.dict()
+
+    try:
+        return dict_["data"][0]["admins"]
+    except Exception as e:
+        print("Error checking if user is admin: ", str(e))
+        return []
+
+
 async def remove_bot(supabase: AsyncClient, _id: int):
     try:
         _ = await supabase.from_("chats").delete().eq("id", _id).execute()
