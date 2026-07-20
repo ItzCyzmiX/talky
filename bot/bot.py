@@ -97,6 +97,43 @@ class Talky(commands.Bot):
                     await sleep(0.3)
                     break
 
+    async def on_message_edit(self, before: discord.Message, after: discord.Message):
+        if before.author.bot:
+            return
+
+        if after.channel.id in self.running_bots.keys():
+            if before != after:
+                for i in range(len(self.running_bots[after.channel.id]["messages"])):
+                    index = len(self.running_bots[after.channel.id]["messages"]) - i - 1
+
+                    if (
+                        self.running_bots[after.channel.id]["messages"][index][
+                            "discord_message_id"
+                        ]
+                        == after.id
+                    ):
+                        new_messages = self.running_bots[after.channel.id][
+                            "messages"
+                        ].copy()
+
+                        new_messages[index] = {
+                            "role": "user",
+                            "discord_message_id": after.id,
+                            "content": after.content,
+                        }
+
+                        ok = await update_messages(
+                            self.supabase,
+                            after.channel.id,
+                            {"messages": new_messages},
+                        )
+                        if ok:
+                            self.running_bots[after.channel.id][
+                                "messages"
+                            ] = new_messages
+                        await sleep(0.3)
+                        break
+
     async def on_message(self, message: discord.Message):
 
         if message.author == self.user:
