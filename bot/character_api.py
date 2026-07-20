@@ -32,6 +32,7 @@ async def _get_openrouter_models() -> list:
                 max_price=0,
                 output_modalities="text",
                 input_modalities="text",
+                limit=24,
             )
 
             return list(map(lambda model: model.id, res.result.data))[:24]

@@ -176,7 +176,7 @@ class Talky(commands.Bot):
                     model = "vision"
 
                     content = [
-                        {"type": "text", "text": msg},
+                        {"type": "text", "text": f"({message.author.name}) {msg}"},
                         {
                             "type": "image_url",
                             "image_url": {"url": message.attachments[0].url},
