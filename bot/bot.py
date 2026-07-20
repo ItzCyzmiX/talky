@@ -188,6 +188,18 @@ class Talky(commands.Bot):
                         await message.delete()
                         return
 
+                    for a in message.attachments:
+                        if (
+                            not a.content_type.startswith("image/")
+                            or a.content_type == "iamge/gif"
+                        ):
+                            await message.channel.send(
+                                "File type invalid (make sure its an image not a GIF)!",
+                                delete_after=10,
+                            )
+                            await message.delete()
+                            return
+
                     global_size = sum(
                         list(map(lambda x: x.size, message.attachments))
                     ) / (
