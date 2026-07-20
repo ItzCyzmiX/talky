@@ -104,6 +104,7 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 | `/admin` | `<user>` | Promote a user to admin | Admin only |
 | `/gpt` | — | Select AI model for this channel | Admin only |
 | `/add` | `<user>` | Add user to private chat | Admin only |
+| `/private` | — | Turns public chat to private | Admin only |
 | `/kick` | `<user>` | Remove user from private chat | Admin only |
 | `/kill` | — | Delete the chatbot channel permanently | Admin only |
 

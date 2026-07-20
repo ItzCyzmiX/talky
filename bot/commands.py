@@ -547,7 +547,7 @@ class Commands(commands.Cog):
 
     @app_commands.command(name="private", description="Make this chat private")
     @app_commands.guilds(GUILD)
-    async def private(self, interaction: discord.interaction):
+    async def private(self, interaction: discord.Interaction):
         if interaction.channel.id not in self.bot.running_bots.keys():
             await interaction.response.send_message(
                 "Use this in a chat bot channel!",
