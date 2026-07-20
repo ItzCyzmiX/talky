@@ -66,6 +66,8 @@ class Talky(commands.Bot):
 
         await asyncio.sleep(0.3)
         self.openrouter_models = await _get_openrouter_models()
+        await asyncio.sleep(0.4)
+        print(self.running_bots)
 
     async def on_message_delete(self, message: discord.Message):
         if message.author == self.user:
@@ -143,6 +145,16 @@ class Talky(commands.Bot):
 
             async with message.channel.typing():
 
+                all_overwrites = message.channel.overwrites_for(
+                    message.guild.default_role
+                )
+
+                all_overwrites.send_messages = False
+
+                await message.channel.set_permissions(
+                    message.guild.default_role, overwrite=all_overwrites
+                )
+
                 revert_to_llama = False
 
                 msg = message.content
@@ -205,6 +217,16 @@ class Talky(commands.Bot):
 
                 response_message = await message.channel.send(
                     f"{message.channel.name}: {response}"
+                )
+
+                all_overwrites = message.channel.overwrites_for(
+                    message.guild.default_role
+                )
+
+                all_overwrites.send_messages = True
+
+                await message.channel.set_permissions(
+                    message.guild.default_role, overwrite=all_overwrites
                 )
 
                 new_msgs = [

@@ -578,9 +578,7 @@ class Commands(commands.Cog):
                     name=bot_name, overwrites=overwrites, slowmode_delay=5
                 )
             else:
-                new_channel = await bot_category.create_text_channel(
-                    name=bot_name, slowmode_delay=20
-                )
+                new_channel = await bot_category.create_text_channel(name=bot_name)
 
             while not new_channel:
                 await asyncio.sleep(0.3)
