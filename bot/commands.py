@@ -8,7 +8,60 @@ from typing import Optional
 from bot.consts import BOT_CREATION_CHANNEL, GUILD, BOTS_CATEGORY_ID, DELETE_DELAY
 from bot.bot import Talky
 from bot.utils import sys_message, fetch_gif
-from bot.supabase import new_bot, remove_bot, is_admin, add_admin, change_bot_gpt
+from bot.supabase import (
+    new_bot,
+    remove_bot,
+    is_admin,
+    add_admin,
+    change_bot_gpt,
+    update_messages,
+)
+
+
+class AIEdit(
+    discord.ui.Modal,
+):
+    def __init__(self, bot: Talky, message: discord.Message, index: int, bot_name: str):
+        super().__init__(title="Edit Ai Response")
+        self.bot = bot
+        self.message = message
+        self.index = index
+        self.bot_name = bot_name
+        self.new_message_input = discord.ui.TextInput(
+            label="new message",
+            default="".join(self.message.content.split(":")[1:]),  # trim the bot name
+            style=discord.TextStyle.paragraph,
+        )
+
+        self.add_item(self.new_message_input)
+
+    async def on_submit(self, interaction: discord.Interaction):
+
+        if (
+            not self.new_message_input.value
+            or self.new_message_input.value == self.message.content
+        ):
+            return
+
+        new_messages = self.bot.running_bots[self.message.channel.id]["messages"].copy()
+        new_messages[self.index] = {
+            "role": "assistant",
+            "content": f"{self.bot_name}: {self.new_message_input.value}",  # add the bot name back
+            "discord_message_id": self.message.id,
+        }
+
+        ok = await update_messages(
+            self.bot.supabase,
+            self.message.channel.id,
+            {"messages": new_messages},
+        )
+
+        if ok:
+            self.bot.running_bots[self.message.channel.id]["messages"] = new_messages
+            await self.message.edit(content=self.new_message_input.value)
+            await interaction.response.send_message(
+                "Edited ai message!", ephemeral=True, delete_after=5
+            )
 
 
 class ModelSelect(discord.ui.Select):
@@ -63,6 +116,17 @@ class Commands(commands.Cog):
     def __init__(self, bot: Talky):
         self.bot = bot
 
+        self.delete_ctx = app_commands.ContextMenu(
+            name="Delete AI message", callback=self.delete, guild_ids=[GUILD.id]
+        )
+
+        self.edit_ctx = app_commands.ContextMenu(
+            name="Edit AI message", callback=self.edit, guild_ids=[GUILD.id]
+        )
+
+        self.bot.tree.add_command(self.delete_ctx)
+        self.bot.tree.add_command(self.edit_ctx)
+
     @app_commands.command(name="help", description="Get commands")
     @app_commands.guilds(GUILD)
     async def help(self, interaction: discord.Interaction):
@@ -90,7 +154,186 @@ class Commands(commands.Cog):
     @app_commands.command(name="status", description="Get if you are admin or not")
     @app_commands.guilds(GUILD)
     async def status(self, interaction: discord.Interaction):
-        if interaction.channel.id in self.bot.running_bots.keys():
+        if interaction.channel.id not in self.bot.running_bots.keys():
+            await interaction.response.send_message(
+                "Use this in a chat bot channel!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+            "admins", None
+        )
+
+        am_admin = False
+
+        if admins is None:
+            am_admin = await is_admin(
+                self.bot.supabase, interaction.channel.id, interaction.user.id
+            )
+        else:
+            am_admin = interaction.user.id in admins
+
+        msg = "You are" + (" " if am_admin else " not ") + "admin"
+        await interaction.response.send_message(
+            msg,
+            ephemeral=True,
+            delete_after=DELETE_DELAY,
+        )
+
+    @app_commands.command(name="admin", description="Gives admin to selected users")
+    @app_commands.describe(target="The user you want to give admin to")
+    @app_commands.guilds(GUILD)
+    async def admin(self, interaction: discord.Interaction, target: discord.Member):
+
+        if interaction.channel.id not in self.bot.running_bots.keys():
+            await interaction.response.send_message(
+                "Use this in a chat bot channel!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        try:
+            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                "admins", None
+            )
+
+            can_give_admin = False
+
+            if admins is None:
+                can_give_admin = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                )
+            else:
+                can_give_admin = interaction.user.id in admins
+
+            if not can_give_admin:
+                await interaction.response.send_message(
+                    "You must be admin of this conversation!",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
+            if target.id == interaction.user.id:
+                await interaction.response.send_message(
+                    "You are already admin!",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
+            target_can_give_admin = await is_admin(
+                self.bot.supabase, interaction.channel.id, target.id
+            )
+            if target_can_give_admin:
+                await interaction.response.send_message(
+                    f"{target.mention} is already admin!",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
+            ok = await add_admin(self.bot.supabase, interaction.channel.id, target.id)
+
+            if ok:
+                self.bot.running_bots[interaction.channel_id]["admins"] = [
+                    *self.bot.running_bots[interaction.channel_id]["admins"],
+                    target.id,
+                ]
+                await interaction.response.send_message(
+                    f"{target.mention} is now an admin of this conversation!",
+                    delete_after=10,
+                )
+            else:
+                await interaction.response.send_message(
+                    f"Couldnt give {target.mention} admin access, try again",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                "Error while deleting this convo, try again",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            print("Error giving admin: ", str(e))
+
+    @app_commands.command(name="kill", description="Kill this conversation")
+    @app_commands.guilds(GUILD)
+    async def kill(self, interaction: discord.Interaction):
+
+        if interaction.channel.id not in self.bot.running_bots.keys():
+            await interaction.response.send_message(
+                "Use this in a chat bot channel!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+        try:
+            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                "admins", None
+            )
+
+            can_kill = False
+
+            if admins is None:
+                can_kill = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                )
+            else:
+                can_kill = interaction.user.id in admins
+
+            if not can_kill:
+                await interaction.response.send_message(
+                    "You must be admin of this conversation!",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
+            removed = await remove_bot(self.bot.supabase, interaction.channel.id)
+            if not removed:
+                await interaction.response.send_message(
+                    "Error while deleting this convo, try again",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+            del self.bot.running_bots[interaction.channel.id]
+            await interaction.channel.delete()
+
+        except Exception as e:
+            await interaction.response.send_message(
+                "Error while deleting this convo, try again",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            print(f"Cant kill conversation: {str(e)}")
+
+    @app_commands.command(name="add", description="Add user to private chat")
+    @app_commands.describe(user="User to add to this private chat")
+    @app_commands.guilds(GUILD)
+    async def add(self, interaction: discord.Interaction, user: discord.Member):
+
+        if interaction.channel.id not in self.bot.running_bots.keys():
+            await interaction.response.send_message(
+                "Use this in a chat bot channel!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+        if user == self.bot.user:
+            await interaction.response.send_message(
+                "Im already in every conversation :)",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+        try:
             admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
                 "admins", None
             )
@@ -104,346 +347,198 @@ class Commands(commands.Cog):
             else:
                 am_admin = interaction.user.id in admins
 
-            msg = "You are" + (" " if am_admin else " not ") + "admin"
-            await interaction.response.send_message(
-                msg,
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-
-    @app_commands.command(name="admin", description="Gives admin to selected users")
-    @app_commands.describe(target="The user you want to give admin to")
-    @app_commands.guilds(GUILD)
-    async def admin(self, interaction: discord.Interaction, target: discord.Member):
-        if interaction.channel.id in self.bot.running_bots.keys():
-
-            try:
-                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
-                    "admins", None
-                )
-
-                can_give_admin = False
-
-                if admins is None:
-                    can_give_admin = await is_admin(
-                        self.bot.supabase, interaction.channel.id, interaction.user.id
-                    )
-                else:
-                    can_give_admin = interaction.user.id in admins
-
-                if not can_give_admin:
-                    await interaction.response.send_message(
-                        "You must be admin of this conversation!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                if target.id == interaction.user.id:
-                    await interaction.response.send_message(
-                        "You are already admin!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                target_can_give_admin = await is_admin(
-                    self.bot.supabase, interaction.channel.id, target.id
-                )
-                if target_can_give_admin:
-                    await interaction.response.send_message(
-                        f"{target.mention} is already admin!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                ok = await add_admin(
-                    self.bot.supabase, interaction.channel.id, target.id
-                )
-
-                if ok:
-                    self.bot.running_bots[interaction.channel_id]["admins"] = [
-                        *self.bot.running_bots[interaction.channel_id]["admins"],
-                        target.id,
-                    ]
-                    await interaction.response.send_message(
-                        f"{target.mention} is now an admin of this conversation!",
-                        delete_after=10,
-                    )
-                else:
-                    await interaction.response.send_message(
-                        f"Couldnt give {target.mention} admin access, try again",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-
-            except Exception as e:
+            if not am_admin:
                 await interaction.response.send_message(
-                    "Error while deleting this convo, try again",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                print("Error giving admin: ", str(e))
-
-    @app_commands.command(name="kill", description="Kill this conversation")
-    @app_commands.guilds(GUILD)
-    async def kill(self, interaction: discord.Interaction):
-
-        if interaction.channel.id in self.bot.running_bots.keys():
-            try:
-                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
-                    "admins", None
-                )
-
-                can_kill = False
-
-                if admins is None:
-                    can_kill = await is_admin(
-                        self.bot.supabase, interaction.channel.id, interaction.user.id
-                    )
-                else:
-                    can_kill = interaction.user.id in admins
-
-                if not can_kill:
-                    await interaction.response.send_message(
-                        "You must be admin of this conversation!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                removed = await remove_bot(self.bot.supabase, interaction.channel.id)
-                if not removed:
-                    await interaction.response.send_message(
-                        "Error while deleting this convo, try again",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-                del self.bot.running_bots[interaction.channel.id]
-                await interaction.channel.delete()
-
-            except Exception as e:
-                await interaction.response.send_message(
-                    "Error while deleting this convo, try again",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                print(f"Cant kill conversation: {str(e)}")
-        else:
-            await interaction.response.send_message(
-                "Must be used within a conversation channel!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-
-    @app_commands.command(name="add", description="Add user to private chat")
-    @app_commands.describe(user="User to add to this private chat")
-    @app_commands.guilds(GUILD)
-    async def add(self, interaction: discord.Interaction, user: discord.Member):
-
-        if interaction.channel.id in self.bot.running_bots.keys():
-            if user == self.bot.user:
-                await interaction.response.send_message(
-                    "Im already in every conversation :)",
+                    "You must be admin of this conversation!",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
                 return
-            try:
-                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
-                    "admins", None
-                )
 
-                am_admin = False
+            guild = interaction.guild
+            all_overwrites = interaction.channel.overwrites_for(guild.default_role)
+            selected_user_overwrites = interaction.channel.overwrites_for(user)
 
-                if admins is None:
-                    am_admin = await is_admin(
-                        self.bot.supabase, interaction.channel.id, interaction.user.id
-                    )
-                else:
-                    am_admin = interaction.user.id in admins
-
-                if not am_admin:
-                    await interaction.response.send_message(
-                        "You must be admin of this conversation!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                guild = interaction.guild
-                all_overwrites = interaction.channel.overwrites_for(guild.default_role)
-                selected_user_overwrites = interaction.channel.overwrites_for(user)
-
-                if all_overwrites.view_channel:  # chat is public
-                    await interaction.response.send_message(
-                        "This conversation is public!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                if selected_user_overwrites.view_channel:
-                    await interaction.response.send_message(
-                        "This user is already in the private conversation",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                user_overwrite = discord.PermissionOverwrite(
-                    view_channel=True, send_messages=True, embed_links=True
-                )
-
-                await interaction.channel.set_permissions(
-                    user, overwrite=user_overwrite, reason="Added to private chat"
-                )
-
+            if all_overwrites.view_channel:  # chat is public
                 await interaction.response.send_message(
-                    f"{user.mention} has been added to the private conversation!",
-                    delete_after=DELETE_DELAY,
-                )
-
-            except Exception as e:
-                await interaction.response.send_message(
-                    f"Couldn't add {user.name} to private chat",
+                    "This conversation is public!",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
-                print("Error adding user to private chat: ", str(e))
                 return
+
+            if selected_user_overwrites.view_channel:
+                await interaction.response.send_message(
+                    "This user is already in the private conversation",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
+            user_overwrite = discord.PermissionOverwrite(
+                view_channel=True, send_messages=True, embed_links=True
+            )
+
+            await interaction.channel.set_permissions(
+                user, overwrite=user_overwrite, reason="Added to private chat"
+            )
+
+            await interaction.response.send_message(
+                f"{user.mention} has been added to the private conversation!",
+                delete_after=DELETE_DELAY,
+            )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                f"Couldn't add {user.name} to private chat",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            print("Error adding user to private chat: ", str(e))
+            return
 
     @app_commands.command(name="gpt", description="Change ai model used in chat")
     @app_commands.guilds(GUILD)
     async def gpt(self, interaction: discord.Interaction):
 
-        if interaction.channel.id in self.bot.running_bots.keys():
-            try:
-                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
-                    "admins", None
+        if interaction.channel.id not in self.bot.running_bots.keys():
+            await interaction.response.send_message(
+                "Use this in a chat bot channel!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+        try:
+            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                "admins", None
+            )
+
+            am_admin = False
+
+            if admins is None:
+                am_admin = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
                 )
+            else:
+                am_admin = interaction.user.id in admins
 
-                am_admin = False
-
-                if admins is None:
-                    am_admin = await is_admin(
-                        self.bot.supabase, interaction.channel.id, interaction.user.id
-                    )
-                else:
-                    am_admin = interaction.user.id in admins
-
-                if not am_admin:
-                    await interaction.response.send_message(
-                        "You must be admin of this conversation!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                view = ModelView(
-                    models=["llama (default)", *self.bot.openrouter_models],
-                    channel_id=interaction.channel.id,
-                    bot=self.bot,
-                )
-
+            if not am_admin:
                 await interaction.response.send_message(
-                    "Select an AI model:",
-                    view=view,
+                    "You must be admin of this conversation!",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
-
-            except Exception as e:
-                await interaction.response.send_message(
-                    "Couldnt change ai model",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                print("Error changing ai model: ", str(e))
                 return
+
+            view = ModelView(
+                models=["llama (default)", *self.bot.openrouter_models],
+                channel_id=interaction.channel.id,
+                bot=self.bot,
+            )
+
+            await interaction.response.send_message(
+                "Select an AI model:",
+                view=view,
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                "Couldnt change ai model",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            print("Error changing ai model: ", str(e))
+            return
 
     @app_commands.command(name="kick", description="kick user from private chat")
     @app_commands.describe(user="User to add to this private chat")
     @app_commands.guilds(GUILD)
     async def kick(self, interaction: discord.Interaction, user: discord.Member):
 
-        if interaction.channel.id in self.bot.running_bots.keys():
-            if user == self.bot.user:
+        if interaction.channel.id not in self.bot.running_bots.keys():
+            await interaction.response.send_message(
+                "Use this in a chat bot channel!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        if user == self.bot.user:
+            await interaction.response.send_message(
+                "You cant kick me :)",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+        try:
+            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+                "admins", None
+            )
+
+            am_admin = False
+
+            if admins is None:
+                am_admin = await is_admin(
+                    self.bot.supabase, interaction.channel.id, interaction.user.id
+                )
+            else:
+                am_admin = interaction.user.id in admins
+
+            if not am_admin:
                 await interaction.response.send_message(
-                    "You cant kick me :)",
+                    "You must be admin of this conversation!",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
                 return
-            try:
-                admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
-                    "admins", None
-                )
 
-                am_admin = False
+            guild = interaction.guild
+            all_overwrites = interaction.channel.overwrites_for(guild.default_role)
+            selected_user_overwrites = interaction.channel.overwrites_for(user)
 
-                if admins is None:
-                    am_admin = await is_admin(
-                        self.bot.supabase, interaction.channel.id, interaction.user.id
-                    )
-                else:
-                    am_admin = interaction.user.id in admins
-
-                if not am_admin:
-                    await interaction.response.send_message(
-                        "You must be admin of this conversation!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                guild = interaction.guild
-                all_overwrites = interaction.channel.overwrites_for(guild.default_role)
-                selected_user_overwrites = interaction.channel.overwrites_for(user)
-
-                if all_overwrites.view_channel:  # chat is public
-                    await interaction.response.send_message(
-                        "This conversation is public!",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                if not selected_user_overwrites.view_channel:
-                    await interaction.response.send_message(
-                        "This user is not in the private conversation",
-                        ephemeral=True,
-                        delete_after=DELETE_DELAY,
-                    )
-                    return
-
-                user_overwrite = discord.PermissionOverwrite(
-                    view_channel=False, send_messages=False, embed_links=False
-                )
-
-                await interaction.channel.set_permissions(
-                    user, overwrite=user_overwrite, reason="Kicked from private chat"
-                )
-
+            if all_overwrites.view_channel:  # chat is public
                 await interaction.response.send_message(
-                    f"{user.mention} has been kicked from the private conversation!",
-                    delete_after=DELETE_DELAY,
-                )
-
-                await user.send(
-                    f"{interaction.user.mention} has kicked you from there private chat with {interaction.channel.name}!"
-                )
-
-            except Exception as e:
-                await interaction.response.send_message(
-                    f"Couldnt kick {user.name} to private chat",
+                    "This conversation is public!",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
-                print("Error adding user to private chat: ", str(e))
                 return
+
+            if not selected_user_overwrites.view_channel:
+                await interaction.response.send_message(
+                    "This user is not in the private conversation",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
+            user_overwrite = discord.PermissionOverwrite(
+                view_channel=False, send_messages=False, embed_links=False
+            )
+
+            await interaction.channel.set_permissions(
+                user, overwrite=user_overwrite, reason="Kicked from private chat"
+            )
+
+            await interaction.response.send_message(
+                f"{user.mention} has been kicked from the private conversation!",
+                delete_after=DELETE_DELAY,
+            )
+
+            await user.send(
+                f"{interaction.user.mention} has kicked you from there private chat with {interaction.channel.name}!"
+            )
+
+        except Exception as e:
+            await interaction.response.send_message(
+                f"Couldnt kick {user.name} to private chat",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            print("Error adding user to private chat: ", str(e))
+            return
 
     @app_commands.command(name="talk", description="Create a new chat bot")
     @app_commands.describe(
@@ -465,14 +560,6 @@ class Commands(commands.Cog):
                 return
 
             bot_category = self.bot.get_channel(BOTS_CATEGORY_ID)
-
-            for c in bot_category.text_channels:
-                if c.name == bot_name:
-                    await interaction.response.send_message(
-                        f"Character channel already created! {c.mention} (kill it with !kill to create a new chat)",
-                        ephemeral=True,
-                    )
-                    return
 
             if private:
                 guild = interaction.guild
@@ -520,7 +607,7 @@ class Commands(commands.Cog):
 
             self.bot.running_bots[new_channel.id] = {
                 "admins": [interaction.user.id],
-                "messages": [],
+                "messages": [sys_message(bot_name)],
                 "gpt": "llama",
             }
 
@@ -541,6 +628,88 @@ class Commands(commands.Cog):
 
         except Exception as e:
             print("ERROR TALKING: ", str(e))
+
+    async def edit(self, interaction: discord.Interaction, message: discord.Message):
+        if interaction.channel.id in self.bot.running_bots.keys():
+            if message.author == self.bot.user:
+                for i in range(
+                    len(self.bot.running_bots[message.channel.id]["messages"])
+                ):
+                    index = (
+                        len(self.bot.running_bots[message.channel.id]["messages"])
+                        - i
+                        - 1
+                    )  # bottom up for better performance
+
+                    if (
+                        self.bot.running_bots[message.channel.id]["messages"][index][
+                            "discord_message_id"
+                        ]
+                        == message.id
+                        and self.bot.running_bots[message.channel.id]["messages"][
+                            index
+                        ]["role"]
+                        == "assistant"
+                    ):
+
+                        await interaction.response.send_modal(
+                            AIEdit(self.bot, message, index, interaction.channel.name)
+                        )
+                        await asyncio.sleep(0.3)
+                        return
+
+            await interaction.response.send_message(
+                "Couldn't edit the message", ephemeral=True, delete_after=10
+            )
+
+    async def delete(self, interaction: discord.Interaction, message: discord.Message):
+        if interaction.channel.id in self.bot.running_bots.keys():
+            if message.author == self.bot.user:
+                for i in range(
+                    len(self.bot.running_bots[message.channel.id]["messages"])
+                ):
+                    index = (
+                        len(self.bot.running_bots[message.channel.id]["messages"])
+                        - i
+                        - 1
+                    )  # bottom up for better performance
+
+                    if (
+                        self.bot.running_bots[message.channel.id]["messages"][index][
+                            "discord_message_id"
+                        ]
+                        == message.id
+                        and self.bot.running_bots[message.channel.id]["messages"][
+                            index
+                        ]["role"]
+                        == "assistant"
+                    ):
+                        new_messages = self.bot.running_bots[message.channel.id][
+                            "messages"
+                        ].copy()
+                        new_messages.pop(index)
+
+                        ok = await update_messages(
+                            self.bot.supabase,
+                            message.channel.id,
+                            {"messages": new_messages},
+                        )
+
+                        if ok:
+                            self.bot.running_bots[message.channel.id][
+                                "messages"
+                            ] = new_messages
+                            await message.delete()
+                            await interaction.response.send_message(
+                                "delted ai message!", ephemeral=True, delete_after=5
+                            )
+
+                        await asyncio.sleep(0.3)
+                        return
+
+            await interaction.response.send_message(
+                "Couldn't delete the message", ephemeral=True, delete_after=10
+            )
 
 
 async def setup(bot: commands.Bot):

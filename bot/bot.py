@@ -88,11 +88,12 @@ class Talky(commands.Bot):
                         "messages"
                     ].copy()
                     new_messages.pop(index)
-                    self.running_bots[message.channel.id]["messages"] = new_messages
 
-                    await update_messages(
+                    ok = await update_messages(
                         self.supabase, message.channel.id, {"messages": new_messages}
                     )
+                    if ok:
+                        self.running_bots[message.channel.id]["messages"] = new_messages
                     await sleep(0.3)
                     break
 
@@ -102,6 +103,7 @@ class Talky(commands.Bot):
             return
 
         if message.channel.id in self.running_bots.keys():
+
             async with message.channel.typing():
 
                 revert_to_llama = False
@@ -188,15 +190,6 @@ class Talky(commands.Bot):
 
                 if revert_to_llama:
                     await change_bot_gpt(message.channel.id, "llama")
-
-    @tree.context_menu(name="Delete")
-    async def process_message(
-        interaction: discord.Interaction, message: discord.Message
-    ):
-
-        await interaction.response.send_message(
-            f"You selected a message sent by {message.author}: '{message.content}'"
-        )
 
 
 async def run_bot():
