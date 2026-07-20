@@ -606,7 +606,6 @@ class Commands(commands.Cog):
     @app_commands.command(name="talk", description="Create a new chat bot")
     @app_commands.describe(
         bot_name="Name of the bot",
-        private="If the chat is private or public",
         private="If the chat will be private",
     )
     @app_commands.guilds(GUILD)
