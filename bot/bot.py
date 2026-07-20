@@ -13,7 +13,9 @@ from bot.supabase import (
 )
 import os
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
-from asyncio import sleep
+import asyncio
+from putergenai import PuterClient
+from pprint import pprint
 
 load_dotenv()
 
@@ -45,7 +47,7 @@ class Talky(commands.Bot):
         channels = bot_category.text_channels
         channel_ids = list(map(lambda x: x.id, channels))
 
-        await sleep(0.3)
+        await asyncio.sleep(0.3)
 
         db_bot_ids = await get_bots_with_ids(self.supabase, channel_ids)
 
@@ -64,7 +66,7 @@ class Talky(commands.Bot):
                 "gpt": gpt,
             }
 
-        await sleep(0.3)
+        await asyncio.sleep(0.3)
         self.openrouter_models = await _get_openrouter_models()
 
     async def on_message_delete(self, message: discord.Message):
@@ -94,7 +96,7 @@ class Talky(commands.Bot):
                     )
                     if ok:
                         self.running_bots[message.channel.id]["messages"] = new_messages
-                    await sleep(0.3)
+                    await asyncio.sleep(0.3)
                     break
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
@@ -131,7 +133,7 @@ class Talky(commands.Bot):
                             self.running_bots[after.channel.id][
                                 "messages"
                             ] = new_messages
-                        await sleep(0.3)
+                        await asyncio.sleep(0.3)
                         break
 
     async def on_message(self, message: discord.Message):

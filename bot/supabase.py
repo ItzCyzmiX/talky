@@ -34,7 +34,7 @@ async def get_messages(supabase: AsyncClient, _id: int):
 
 
 async def new_bot(
-    supabase: AsyncClient, _id: int, bot_name: str, admins: [int], messages: dict
+    supabase: AsyncClient, _id: int, bot_name: str, admins: list[int], messages: dict
 ):
     try:
         _ = (
@@ -109,7 +109,7 @@ async def add_admin(supabase: AsyncClient, _id: int, user_id: int):
         return False
 
 
-async def get_bots_with_ids(supabase: AsyncClient, ids: [int]):
+async def get_bots_with_ids(supabase: AsyncClient, ids: list[int]):
     res = await supabase.from_("chats").select("id").in_("id", ids).execute()
     json = res.dict()
     try:
