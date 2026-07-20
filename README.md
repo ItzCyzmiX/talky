@@ -1,6 +1,6 @@
 # 🤖 Talky
 
-A Discord bot that lets you create isolated, persistent AI chatbot personas — each one living in its own channel with its own memory, admin controls, and flexible LLM selection. Chat with anyone, anytime, powered by your choice of AI models.
+A Discord bot that lets you create isolated, persistent AI chatbot personas — each one living in its own channel with its own memory, admin controls, and flexible LLM selection. Chat with anyone, anywhere, about anything — the bot remembers.
 
 ---
 
@@ -17,8 +17,16 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 - Admins can add members with `/add <user>` or remove them with `/kick <user>`
 - Perfect for private group discussions with AI
 
+### 🖼️ **Image & GIF Embed Integration**
+- Upload images or GIFs in your messages
+- AI analyzes images and responds based on visual content
+- Supports up to **4 images per message** (20MB total max)
+- Uses **Qwen 3.6 27B vision model** for accurate image understanding
+- Works seamlessly with text in the same message
+
 ### 🧠 **Flexible AI Model Selection**
 - **Default**: Llama 3.3 70B (via Groq) — fast, reliable, and free
+- **Vision Mode**: Automatic when images are detected (Qwen 3.6 27B)
 - **Custom Models**: Choose from 24+ OpenRouter models with `/gpt`
 - Automatic fallback to Llama if your selected model fails
 - Models are cached on startup for quick switching
@@ -67,13 +75,22 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 
 ### Message Flow
 
-1. User sends a message in a chatbot channel
-2. Bot retrieves the channel's message history from in-memory cache
-3. Bot formats messages with usernames: `(username) message content`
-4. Selected AI model generates a response with full context
-5. Response is sent to Discord and saved to cache & database
-6. If user edits/deletes → both Discord and database are updated
-7. If a custom model fails → automatically reverts to Llama
+1. User sends a message in a chatbot channel (with or without images)
+2. If images are attached, bot switches to **vision mode** automatically
+3. Bot retrieves the channel's message history from in-memory cache
+4. Bot formats messages with usernames and image URLs: `(username) message content` + images
+5. Selected AI model (or vision model) generates a response with full context
+6. Response is sent to Discord and saved to cache & database
+7. If user edits/deletes → both Discord and database are updated
+8. If a custom model fails → automatically reverts to Llama
+
+### Image Processing
+
+- Accepts **image attachments** (PNG, JPG, GIF, WebP, etc.)
+- **Automatic model switching** to vision-capable Qwen model when images detected
+- Images passed as **URLs to the API** (fast, no local storage needed)
+- **Max 4 images per message**, **20MB total** to prevent API throttling
+- Vision responses seamlessly integrated into conversation history
 
 ---
 
@@ -109,7 +126,7 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
   - `applications.commands` scope
   - Permissions: **Manage Channels**, **Send Messages**, **Embed Links**
   - ([Create at Discord Developer Portal](https://discord.com/developers/applications))
-- **Groq API key** ([console.groq.com](https://console.groq.com/))
+- **Groq API key** ([console.groq.com](https://console.groq.com/)) — for Llama and vision models
 - **OpenRouter API key** for model selection ([openrouter.ai](https://openrouter.ai))
 - **Giphy API key** for bot GIFs ([developers.giphy.com](https://developers.giphy.com/))
 - **Supabase project** ([supabase.com](https://supabase.com/))
@@ -217,7 +234,7 @@ Or manually:
 ## 📦 Dependencies
 
 - **discord.py 2.7.1** — Discord bot framework
-- **groq 0.18.0** — Groq API client (Llama models)
+- **groq 0.18.0** — Groq API client (Llama models + vision)
 - **openrouter 0.11.44** — OpenRouter API client (24+ models)
 - **python-dotenv 1.0.1** — Environment variable management
 - **aiohttp 3.13.3** — Async HTTP (Giphy API)
