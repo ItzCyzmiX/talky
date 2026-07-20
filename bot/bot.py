@@ -11,8 +11,9 @@ from bot.supabase import (
     change_bot_gpt,
     get_admins,
 )
-import os
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
+from bot.utils import sanitize_msg
+import os
 import asyncio
 
 load_dotenv()
@@ -168,7 +169,7 @@ class Talky(commands.Bot):
 
                 revert_to_llama = False
 
-                msg = message.content
+                msg = sanitize_msg(message.content)
 
                 content = None
 
@@ -217,7 +218,10 @@ class Talky(commands.Bot):
                     model = "vision"
 
                     content = [
-                        {"type": "text", "text": f"({message.author.name}) {msg}"},
+                        {
+                            "type": "text",
+                            "text": f"({sanitize_msg(message.author.name)}) {msg}",
+                        },
                         *[
                             {
                                 "type": "image_url",
@@ -245,7 +249,7 @@ class Talky(commands.Bot):
                         return
 
                 if content is None:
-                    content = f"({message.author.name}) {msg}"
+                    content = f"({sanitize_msg(message.author.name)}) {msg}"
 
                 new_msgs = [
                     *old_msgs,
@@ -289,7 +293,7 @@ class Talky(commands.Bot):
                         return
 
                 response_message = await message.channel.send(
-                    f"{message.channel.name}: {response}"
+                    f"{message.channel.name}: {sanitize_msg(response)}"
                 )
 
                 all_overwrites = message.channel.overwrites_for(
@@ -307,12 +311,12 @@ class Talky(commands.Bot):
                 *new_msgs,
                 {
                     "role": "user",
-                    "content": message.content,
+                    "content": msg,
                     "discord_message_id": message.id,
                 },
                 {
                     "role": "assistant",
-                    "content": response,
+                    "content": sanitize_msg(response),
                     "discord_message_id": response_message.id,
                 },
             ]

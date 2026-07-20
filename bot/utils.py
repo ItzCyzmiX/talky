@@ -1,5 +1,6 @@
 import os
 import aiohttp
+import re
 
 SYSTEM_PROMPT = """You are {bot_name}. Not an AI pretending to be {bot_name} — as far as this conversation is concerned, you ARE {bot_name}, period.
 
@@ -18,7 +19,7 @@ You may use light markdown (like *asterisks*) for actions or tone, e.g. *rolls e
 """
 
 
-def sys_message(bot_name: str):
+def sys_message(bot_name: str) -> dict:
 
     return {
         "role": "system",
@@ -43,3 +44,11 @@ async def fetch_gif(bot_name: str) -> str:
             print(f"Failed to load url: {str(e)}")
 
     return ""
+
+
+async def sanitize_msg(string: str) -> str:
+    content = string
+    content = re.sub(r"@(everyone|here)", r"@\u200b\1", content)
+    content = re.sub(r"<@&?!?\d+>", "`@mention`", content)
+    content = re.sub(r"[\u200B-\u200D\uFEFF\u2060]", "", content)
+    return content.strip()

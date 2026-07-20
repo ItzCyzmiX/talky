@@ -7,7 +7,7 @@ from typing import Optional
 
 from bot.consts import BOT_CREATION_CHANNEL, GUILD, BOTS_CATEGORY_ID, DELETE_DELAY
 from bot.bot import Talky
-from bot.utils import sys_message, fetch_gif
+from bot.utils import sys_message, fetch_gif, sanitize_msg
 from bot.supabase import (
     new_bot,
     remove_bot,
@@ -639,7 +639,7 @@ class Commands(commands.Cog):
                 }
 
                 new_channel = await bot_category.create_text_channel(
-                    name=bot_name, overwrites=overwrites, slowmode_delay=5
+                    name=sanitize_msg(bot_name), overwrites=overwrites, slowmode_delay=5
                 )
             else:
                 new_channel = await bot_category.create_text_channel(name=bot_name)
