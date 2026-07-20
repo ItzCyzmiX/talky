@@ -138,14 +138,26 @@ class Commands(commands.Cog):
             return
 
         await interaction.response.send_message(
-            """\n
-            - ```/talk <bot_name> <private>``` (starts a public or private conversation with the bot) \n
-            - ```/kill``` (deletes the conversation in the channel)\n
-            - ```/admin <user>``` (gives admin access to user)\n
-            - ```/status``` (check if you are admin)\n
-            - ```/add <user>``` (adds user to private chat)\n
-            - ```/kick <user>``` (kicks user from private chat)\n
-            - ```/gpt``` (changes ai model of the conversation)\n
+            """
+## 🛠️ Commands
+
+| Command | Arguments | Description | Permissions |
+|---------|-----------|-------------|-------------|
+| `/talk` | `<bot_name>` `[private]` | Create a new chatbot channel | Anyone (in creation channel) |
+| `/help` | — | Show all available commands | Anyone (in creation channel) |
+| `/status` | — | Check if you're an admin in current channel | Anyone |
+| `/admin` | `<user>` | Promote a user to admin | Admin only |
+| `/gpt` | — | Select AI model for this channel | Admin only |
+| `/add` | `<user>` | Add user to private chat | Admin only |
+| `/kick` | `<user>` | Remove user from private chat | Admin only |
+| `/kill` | — | Delete the chatbot channel permanently | Admin only |
+
+### Context Menu Commands (Right-Click)
+
+| Command | Target | Description | Who Can Use |
+|---------|--------|-------------|------------|
+| **Delete AI message** | Bot response | Delete the AI's message from history and Discord | Anyone |
+| **Edit AI message** | Bot response | Edit the AI's response via modal popup | Anyone |
             """,
             ephemeral=True,
             delete_after=DELETE_DELAY,
