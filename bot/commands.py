@@ -138,27 +138,20 @@ class Commands(commands.Cog):
             return
 
         await interaction.response.send_message(
-            """
-## 🛠️ Commands
-
-| Command | Arguments | Description | Permissions |
-|---------|-----------|-------------|-------------|
-| `/talk` | `<bot_name>` `[private]` | Create a new chatbot channel | Anyone (in creation channel) |
-| `/help` | — | Show all available commands | Anyone (in creation channel) |
-| `/status` | — | Check if you're an admin in current channel | Anyone |
-| `/admin` | `<user>` | Promote a user to admin | Admin only |
-| `/gpt` | — | Select AI model for this channel | Admin only |
-| `/add` | `<user>` | Add user to private chat | Admin only |
-| `/kick` | `<user>` | Remove user from private chat | Admin only |
-| `/kill` | — | Delete the chatbot channel permanently | Admin only |
-
-### Context Menu Commands (Right-Click)
-
-| Command | Target | Description | Who Can Use |
-|---------|--------|-------------|------------|
-| **Delete AI message** | Bot response | Delete the AI's message from history and Discord | Anyone |
-| **Edit AI message** | Bot response | Edit the AI's response via modal popup | Anyone |
-            """,
+            (
+                "## 🛠️ Commands\n"
+                "- `/talk <bot_name> [private]` — Create a new chatbot channel *(Anyone)*\n"
+                "- `/help` — Show all available commands *(Anyone)*\n"
+                "- `/status` — Check if you're an admin in current channel *(Anyone)*\n"
+                "- `/admin <user>` — Promote a user to admin *(Admin only)*\n"
+                "- `/gpt` — Select AI model for this channel *(Admin only)*\n"
+                "- `/add <user>` — Add user to private chat *(Admin only)*\n"
+                "- `/kick <user>` — Remove user from private chat *(Admin only)*\n"
+                "- `/kill` — Delete the chatbot channel permanently *(Admin only)*\n\n"
+                "### Context Menu Commands (Right-Click)\n"
+                "- **Delete AI message** (On Bot response) — Delete the AI's message from history *(Anyone)*\n"
+                "- **Edit AI message** (On Bot response) — Edit the AI's response via modal popup *(Anyone)*"
+            ),
             ephemeral=True,
             delete_after=DELETE_DELAY,
         )
