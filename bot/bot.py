@@ -157,11 +157,31 @@ class Talky(commands.Bot):
 
                 msg = message.content
 
+                content = None
+
                 model = self.running_bots.get(message.channel.id, {}).get("gpt", None)
 
                 old_msgs = self.running_bots.get(message.channel.id, {}).get(
                     "messages", None
                 )
+
+                if message.attachments:
+                    if len(message.attachments) > 1:
+                        await message.channel.send(
+                            "Only one attachment per message!",
+                            delete_after=10,
+                        )
+                        return
+
+                    model = "vision"
+
+                    content = [
+                        {"type": "text", "text": msg},
+                        {
+                            "type": "image_url",
+                            "image_url": {"url": message.attachments[0].url},
+                        },
+                    ]
 
                 if model is None:
                     model = await get_chat_model(self.supabase, message.channel.id)
@@ -180,11 +200,14 @@ class Talky(commands.Bot):
                         )
                         return
 
+                if content is None:
+                    content = f"({message.author.name}) {msg}"
+
                 new_msgs = [
                     *old_msgs,
                     {
                         "role": "user",
-                        "content": f"({message.author.name}) {msg}",
+                        "content": content,
                         "discord_message_id": message.id,
                     },
                 ]
@@ -194,7 +217,7 @@ class Talky(commands.Bot):
                 response = await send_msg_to_bot(new_msgs, model)
 
                 if response is None:
-                    if model != "llama":
+                    if model != "llama" and model != "vision":
 
                         await message.channel.send(
                             f"{model} failed to generate a response, using llama...",

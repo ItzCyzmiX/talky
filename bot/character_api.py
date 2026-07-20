@@ -7,6 +7,8 @@ load_dotenv()
 
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
+VISION_MODEL = "qwen/qwen3.6-27b"
+
 
 async def send_msg_to_bot(messages: list[dict], model="llama") -> str | None:
 
@@ -14,7 +16,9 @@ async def send_msg_to_bot(messages: list[dict], model="llama") -> str | None:
         map(lambda x: {"role": x["role"], "content": x["content"]}, messages)
     )
 
-    if model == "llama":
+    if model == "vision":
+        return await _use_groq(filtred_msgs, VISION_MODEL)
+    elif model == "llama":
         return await _use_groq(filtred_msgs)
     else:
         return await _use_openrouter(filtred_msgs, model)
@@ -53,18 +57,27 @@ async def _use_openrouter(
         return None
 
 
-async def _use_groq(messages: list[dict]) -> str | None:
+async def _use_groq(
+    messages: list[dict], model: str = "llama-3.3-70b-versatile"
+) -> str | None:
     global groq_client
+    print(model)
     try:
-        completion = await groq_client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
-            messages=messages,
-            temperature=1,
-            max_completion_tokens=2048,
-            top_p=1,
-            stream=False,
-            stop=None,
-        )
+
+        params = {
+            "model": model,
+            "messages": messages,
+            "temperature": 1,
+            "max_completion_tokens": 2048,
+            "top_p": 1,
+            "stream": False,
+            "stop": None,
+        }
+
+        if model == VISION_MODEL:
+            params["reasoning_format"] = "hidden"
+
+        completion = await groq_client.chat.completions.create(**params)
 
         return completion.choices[0].message.content
 
