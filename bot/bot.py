@@ -72,30 +72,36 @@ class Talky(commands.Bot):
             return
 
         if message.channel.id in self.running_bots.keys():
+            try:
+                for i in range(len(self.running_bots[message.channel.id]["messages"])):
+                    index = (
+                        len(self.running_bots[message.channel.id]["messages"]) - i - 1
+                    )  # bottom up for better performance
 
-            for i in range(len(self.running_bots[message.channel.id]["messages"])):
-                index = (
-                    len(self.running_bots[message.channel.id]["messages"]) - i - 1
-                )  # bottom up for better performance
+                    if (
+                        self.running_bots[message.channel.id]["messages"][index][
+                            "discord_message_id"
+                        ]
+                        == message.id
+                    ):
+                        new_messages = self.running_bots[message.channel.id][
+                            "messages"
+                        ].copy()
+                        new_messages.pop(index)
 
-                if (
-                    self.running_bots[message.channel.id]["messages"][index][
-                        "discord_message_id"
-                    ]
-                    == message.id
-                ):
-                    new_messages = self.running_bots[message.channel.id][
-                        "messages"
-                    ].copy()
-                    new_messages.pop(index)
-
-                    ok = await update_messages(
-                        self.supabase, message.channel.id, {"messages": new_messages}
-                    )
-                    if ok:
-                        self.running_bots[message.channel.id]["messages"] = new_messages
-                    await asyncio.sleep(0.3)
-                    break
+                        ok = await update_messages(
+                            self.supabase,
+                            message.channel.id,
+                            {"messages": new_messages},
+                        )
+                        if ok:
+                            self.running_bots[message.channel.id][
+                                "messages"
+                            ] = new_messages
+                        await asyncio.sleep(0.3)
+                        break
+            except KeyError:
+                pass  # message delted from early messages (not in chat history anymore) or by the bot due to an error
 
     async def on_message_edit(self, before: discord.Message, after: discord.Message):
         if before.author.bot:
@@ -103,36 +109,43 @@ class Talky(commands.Bot):
 
         if after.channel.id in self.running_bots.keys():
             if before != after:
-                for i in range(len(self.running_bots[after.channel.id]["messages"])):
-                    index = len(self.running_bots[after.channel.id]["messages"]) - i - 1
-
-                    if (
-                        self.running_bots[after.channel.id]["messages"][index][
-                            "discord_message_id"
-                        ]
-                        == after.id
+                try:
+                    for i in range(
+                        len(self.running_bots[after.channel.id]["messages"])
                     ):
-                        new_messages = self.running_bots[after.channel.id][
-                            "messages"
-                        ].copy()
-
-                        new_messages[index] = {
-                            "role": "user",
-                            "discord_message_id": after.id,
-                            "content": after.content,
-                        }
-
-                        ok = await update_messages(
-                            self.supabase,
-                            after.channel.id,
-                            {"messages": new_messages},
+                        index = (
+                            len(self.running_bots[after.channel.id]["messages"]) - i - 1
                         )
-                        if ok:
-                            self.running_bots[after.channel.id][
+
+                        if (
+                            self.running_bots[after.channel.id]["messages"][index][
+                                "discord_message_id"
+                            ]
+                            == after.id
+                        ):
+                            new_messages = self.running_bots[after.channel.id][
                                 "messages"
-                            ] = new_messages
-                        await asyncio.sleep(0.3)
-                        break
+                            ].copy()
+
+                            new_messages[index] = {
+                                "role": "user",
+                                "discord_message_id": after.id,
+                                "content": after.content,
+                            }
+
+                            ok = await update_messages(
+                                self.supabase,
+                                after.channel.id,
+                                {"messages": new_messages},
+                            )
+                            if ok:
+                                self.running_bots[after.channel.id][
+                                    "messages"
+                                ] = new_messages
+                            await asyncio.sleep(0.3)
+                            break
+                except KeyError:
+                    pass  # message edited from early messages (not in chat history anymore)
 
     async def on_message(self, message: discord.Message):
 
@@ -166,21 +179,40 @@ class Talky(commands.Bot):
                 )
 
                 if message.attachments:
-                    if len(message.attachments) > 1:
+
+                    if len(message.attachments) > 4:
                         await message.channel.send(
-                            "Only one attachment per message!",
+                            "Only 4 at max attachment per message!",
                             delete_after=10,
                         )
+                        await message.delete()
+                        return
+
+                    global_size = sum(
+                        list(map(lambda x: x.size, message.attachments))
+                    ) / (
+                        1024 * 1024
+                    )  # bytes to mb
+
+                    if global_size >= 20:
+                        await message.channel.send(
+                            "Files too large (20mb max in total)!",
+                            delete_after=10,
+                        )
+                        await message.delete()
                         return
 
                     model = "vision"
 
                     content = [
                         {"type": "text", "text": f"({message.author.name}) {msg}"},
-                        {
-                            "type": "image_url",
-                            "image_url": {"url": message.attachments[0].url},
-                        },
+                        *[
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": i.url},
+                            }
+                            for i in message.attachments
+                        ],
                     ]
 
                 if model is None:
@@ -250,26 +282,32 @@ class Talky(commands.Bot):
                     message.guild.default_role, overwrite=all_overwrites
                 )
 
-                new_msgs = [
-                    *new_msgs,
-                    {
-                        "role": "assistant",
-                        "content": response,
-                        "discord_message_id": response_message.id,
-                    },
-                ]
+            new_msgs = new_msgs[:-1]
+            new_msgs = [
+                *new_msgs,
+                {
+                    "role": "user",
+                    "content": message.content,
+                    "discord_message_id": message.id,
+                },
+                {
+                    "role": "assistant",
+                    "content": response,
+                    "discord_message_id": response_message.id,
+                },
+            ]
 
-                did_update = await update_messages(
-                    self.supabase, message.channel.id, {"messages": new_msgs}
-                )
+            did_update = await update_messages(
+                self.supabase, message.channel.id, {"messages": new_msgs}
+            )
 
-                if not did_update:
-                    await response_message.delete()
+            if not did_update:
+                await response_message.delete()
 
-                self.running_bots[message.channel.id]["messages"] = new_msgs
+            self.running_bots[message.channel.id]["messages"] = new_msgs
 
-                if revert_to_llama:
-                    await change_bot_gpt(message.channel.id, "llama")
+            if revert_to_llama:
+                await change_bot_gpt(message.channel.id, "llama")
 
 
 async def run_bot():
