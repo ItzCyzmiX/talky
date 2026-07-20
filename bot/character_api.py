@@ -61,7 +61,7 @@ async def _use_groq(
     messages: list[dict], model: str = "llama-3.3-70b-versatile"
 ) -> str | None:
     global groq_client
-    print(model)
+
     try:
 
         params = {
