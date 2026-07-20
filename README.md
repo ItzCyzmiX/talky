@@ -23,6 +23,12 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 - Automatic fallback to Llama if your selected model fails
 - Models are cached on startup for quick switching
 
+### ✏️ **Edit & Delete Messages**
+- Right-click on **any bot message** → "Delete AI message" or "Edit AI message"
+- **Edit user messages** and AI will automatically regenerate responses with the updated context
+- Changes are instantly reflected in the **conversation history and database**
+- Works for both user and AI messages
+
 ### 👑 **Admin Management**
 - Channel creator is automatically an admin
 - Promote other users to admin with `/admin <user>`
@@ -37,6 +43,12 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 - AI has context from previous messages in that channel
 - Survives bot restarts
 
+### 🎭 **Accurate Character Roleplay**
+- AI stays in character — not an AI pretending, **actually becomes** the persona
+- Speaks with authentic vocabulary, tone, and attitude
+- Has opinions and personality, not generic "customer service energy"
+- Naturally uses user names in conversation
+
 ---
 
 ## 📋 How It Works
@@ -49,18 +61,19 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 |---|---|---|
 | `id` | bigint | Discord channel ID (1:1 mapping) |
 | `admins` | text[] | User IDs with admin permissions |
-| `messages` | jsonb | Full message history for the channel |
+| `messages` | jsonb | Full message history with Discord message IDs |
 | `gpt` | text | Selected AI model (defaults to "llama") |
 | `bot_name` | text | Name of the chatbot persona |
 
 ### Message Flow
 
 1. User sends a message in a chatbot channel
-2. Bot retrieves the channel's message history from Supabase
+2. Bot retrieves the channel's message history from in-memory cache
 3. Bot formats messages with usernames: `(username) message content`
 4. Selected AI model generates a response with full context
-5. Response is saved to Supabase and sent to Discord
-6. If a custom model fails, automatically reverts to Llama
+5. Response is sent to Discord and saved to cache & database
+6. If user edits/deletes → both Discord and database are updated
+7. If a custom model fails → automatically reverts to Llama
 
 ---
 
@@ -76,6 +89,13 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 | `/add` | `<user>` | Add user to private chat | Admin only |
 | `/kick` | `<user>` | Remove user from private chat | Admin only |
 | `/kill` | — | Delete the chatbot channel permanently | Admin only |
+
+### Context Menu Commands (Right-Click)
+
+| Command | Target | Description | Who Can Use |
+|---------|--------|-------------|------------|
+| **Delete AI message** | Bot response | Delete the AI's message from history and Discord | Admins |
+| **Edit AI message** | Bot response | Edit the AI's response via modal popup | Admins |
 
 ---
 
@@ -117,7 +137,7 @@ Create a table named `chats` with these columns:
 | `id` | bigint | ❌ | Discord channel ID (primary key) |
 | `admins` | text[] | ✅ | Array of user ID strings |
 | `bot_name` | text | ✅ | Name of the chatbot |
-| `messages` | jsonb | ✅ | Message history JSON |
+| `messages` | jsonb | ✅ | Message history JSON (includes discord_message_id for each message) |
 | `gpt` | text | ✅ | Selected AI model (defaults to "llama") |
 
 **Example SQL:**
