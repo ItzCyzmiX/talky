@@ -66,8 +66,6 @@ class Talky(commands.Bot):
 
         await asyncio.sleep(0.3)
         self.openrouter_models = await _get_openrouter_models()
-        await asyncio.sleep(0.4)
-        print(self.running_bots)
 
     async def on_message_delete(self, message: discord.Message):
         if message.author == self.user:
