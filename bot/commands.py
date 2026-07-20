@@ -545,9 +545,69 @@ class Commands(commands.Cog):
             print("Error adding user to private chat: ", str(e))
             return
 
+    @app_commands.command(name="private", description="Make this chat private")
+    @app_commands.guilds(GUILD)
+    async def private(self, interaction: discord.interaction):
+        if interaction.channel.id not in self.bot.running_bots.keys():
+            await interaction.response.send_message(
+                "Use this in a chat bot channel!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+            "admins", None
+        )
+
+        am_admin = False
+
+        if admins is None:
+            am_admin = await is_admin(
+                self.bot.supabase, interaction.channel.id, interaction.user.id
+            )
+        else:
+            am_admin = interaction.user.id in admins
+
+        if not am_admin:
+            await interaction.response.send_message(
+                "You must be admin of this conversation!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        guild = interaction.guild
+        all_overwrites = interaction.channel.overwrites_for(guild.default_role)
+        if not all_overwrites.view_channel:  # chat is public
+            await interaction.response.send_message(
+                "This conversation is already private!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        all_overwrites.view_channel = False
+        this_user_overwrites = (
+            discord.PermissionOverwrite(view_channel=True, send_messages=True),
+        )
+        guild_me_overwrites = discord.PermissionOverwrite(
+            view_channel=True, send_messages=True
+        )
+
+        await interaction.channel.set_permissions(guild.default_role, all_overwrites)
+        await interaction.channel.set_permissions(
+            interaction.user, overwrite=this_user_overwrites
+        )
+        await interaction.channel.set_permissions(
+            guild.me, overwrite=guild_me_overwrites
+        )
+
     @app_commands.command(name="talk", description="Create a new chat bot")
     @app_commands.describe(
-        bot_name="Name of the bot", private="If the chat is private or public"
+        bot_name="Name of the bot",
+        private="If the chat is private or public",
+        private="If the chat will be private",
     )
     @app_commands.guilds(GUILD)
     async def talk(
