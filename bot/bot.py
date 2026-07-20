@@ -14,8 +14,6 @@ from bot.supabase import (
 import os
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
 import asyncio
-from putergenai import PuterClient
-from pprint import pprint
 
 load_dotenv()
 

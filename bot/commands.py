@@ -239,8 +239,8 @@ class Commands(commands.Cog):
             ok = await add_admin(self.bot.supabase, interaction.channel.id, target.id)
 
             if ok:
-                self.bot.running_bots[interaction.channel_id]["admins"] = [
-                    *self.bot.running_bots[interaction.channel_id]["admins"],
+                self.bot.running_bots[interaction.channel.id]["admins"] = [
+                    *self.bot.running_bots[interaction.channel.id]["admins"],
                     target.id,
                 ]
                 await interaction.response.send_message(
