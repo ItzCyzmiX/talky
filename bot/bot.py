@@ -258,7 +258,15 @@ class Talky(commands.Bot):
 
                 new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
 
-                response = await send_msg_to_bot(new_msgs, model)
+                try:
+                    response = await send_msg_to_bot(new_msgs, model)
+                except:
+                    if model == "vision":
+                        await message.channel.send(
+                            "Uploaded image failed, try again",
+                            delete_after=10,
+                        )
+                        return
 
                 if response is None:
                     if model != "llama" and model != "vision":
