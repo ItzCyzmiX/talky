@@ -94,8 +94,8 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 
 | Command | Target | Description | Who Can Use |
 |---------|--------|-------------|------------|
-| **Delete AI message** | Bot response | Delete the AI's message from history and Discord | Admins |
-| **Edit AI message** | Bot response | Edit the AI's response via modal popup | Admins |
+| **Delete AI message** | Bot response | Delete the AI's message from history and Discord | Anyone |
+| **Edit AI message** | Bot response | Edit the AI's response via modal popup | Anyone |
 
 ---
 
