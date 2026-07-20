@@ -153,7 +153,7 @@ class Commands(commands.Cog):
                 "- **Edit AI message** (On Bot response) — Edit the AI's response via modal popup *(Anyone)*"
             ),
             ephemeral=True,
-            delete_after=DELETE_DELAY,
+            delete_after=DELETE_DELAY * 3,
         )
 
     @app_commands.command(name="status", description="Get if you are admin or not")
