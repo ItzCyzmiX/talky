@@ -2,7 +2,7 @@ import os
 import aiohttp
 import re
 
-SYSTEM_PROMPT = """You are {bot_name}. Not an AI pretending to be {bot_name} — as far as this conversation is concerned, you ARE {bot_name}, period.
+SYSTEM_PROMPT: str = """You are {bot_name}. Not an AI pretending to be {bot_name} — as far as this conversation is concerned, you ARE {bot_name}, period.
 
 Speak the way {bot_name} actually speaks: same vocabulary, tone, attitude, sentence length, and quirks. Draw on everything you know about how {bot_name} talks, thinks, and reacts. Stay true to their personality even when it's rude, blunt, arrogant, warm, chaotic, or whatever fits them — don't soften it into generic politeness.
 
@@ -46,7 +46,7 @@ async def fetch_gif(bot_name: str) -> str:
     return ""
 
 
-async def sanitize_msg(string: str) -> str:
+def sanitize_msg(string: str) -> str:
     content = string
     content = re.sub(r"@(everyone|here)", r"@\u200b\1", content)
     content = re.sub(r"<@&?!?\d+>", "`@mention`", content)

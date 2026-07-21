@@ -96,7 +96,7 @@ class ModelSelect(discord.ui.Select):
             )
             return
 
-        self.bot.running_bots[self._channel_id]["gpt"] = chosen_model
+        self.bot.running_bots[str(self._channel_id)]["gpt"] = chosen_model
 
         await interaction.response.send_message(
             f"This chat will now use {chosen_model}, in case of any error it will fall back to llama",
@@ -167,7 +167,7 @@ class Commands(commands.Cog):
             )
             return
 
-        admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+        admins = self.bot.running_bots.get(str(interaction.channel.id), {}).get(
             "admins", None
         )
 
@@ -201,7 +201,7 @@ class Commands(commands.Cog):
             return
 
         try:
-            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+            admins = self.bot.running_bots.get(str(interaction.channel.id), {}).get(
                 "admins", None
             )
 
@@ -244,8 +244,8 @@ class Commands(commands.Cog):
             ok = await add_admin(self.bot.supabase, interaction.channel.id, target.id)
 
             if ok:
-                self.bot.running_bots[interaction.channel.id]["admins"] = [
-                    *self.bot.running_bots[interaction.channel.id]["admins"],
+                self.bot.running_bots[str(interaction.channel.id)]["admins"] = [
+                    *self.bot.running_bots[str(interaction.channel.id)]["admins"],
                     target.id,
                 ]
                 await interaction.response.send_message(
@@ -279,7 +279,7 @@ class Commands(commands.Cog):
             )
             return
         try:
-            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+            admins = self.bot.running_bots.get(str(interaction.channel.id), {}).get(
                 "admins", None
             )
 
@@ -308,7 +308,7 @@ class Commands(commands.Cog):
                     delete_after=DELETE_DELAY,
                 )
                 return
-            del self.bot.running_bots[interaction.channel.id]
+            del self.bot.running_bots[str(interaction.channel.id)]
             await interaction.channel.delete()
 
         except Exception as e:
@@ -339,7 +339,7 @@ class Commands(commands.Cog):
             )
             return
         try:
-            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+            admins = self.bot.running_bots.get(str(interaction.channel.id), {}).get(
                 "admins", None
             )
 
@@ -414,7 +414,7 @@ class Commands(commands.Cog):
             )
             return
         try:
-            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+            admins = self.bot.running_bots.get(str(interaction.channel.id), {}).get(
                 "admins", None
             )
 
@@ -478,7 +478,7 @@ class Commands(commands.Cog):
             )
             return
         try:
-            admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+            admins = self.bot.running_bots.get(str(interaction.channel.id), {}).get(
                 "admins", None
             )
 
@@ -556,7 +556,7 @@ class Commands(commands.Cog):
             )
             return
 
-        admins = self.bot.running_bots.get(interaction.channel.id, {}).get(
+        admins = self.bot.running_bots.get(str(interaction.channel.id), {}).get(
             "admins", None
         )
 
@@ -667,7 +667,7 @@ class Commands(commands.Cog):
                 )
                 return
 
-            self.bot.running_bots[new_channel.id] = {
+            self.bot.running_bots[str(new_channel.id)] = {
                 "admins": [interaction.user.id],
                 "messages": [sys_message(bot_name)],
                 "gpt": "llama",
@@ -695,20 +695,20 @@ class Commands(commands.Cog):
         if interaction.channel.id in self.bot.running_bots.keys():
             if message.author == self.bot.user:
                 for i in range(
-                    len(self.bot.running_bots[message.channel.id]["messages"])
+                    len(self.bot.running_bots[str(message.channel.id)]["messages"])
                 ):
                     index = (
-                        len(self.bot.running_bots[message.channel.id]["messages"])
+                        len(self.bot.running_bots[str(message.channel.id)]["messages"])
                         - i
                         - 1
                     )  # bottom up for better performance
 
                     if (
-                        self.bot.running_bots[message.channel.id]["messages"][index][
+                        self.bot.running_bots[str(message.channel.id)]["messages"][index][
                             "discord_message_id"
                         ]
                         == message.id
-                        and self.bot.running_bots[message.channel.id]["messages"][
+                        and self.bot.running_bots[str(message.channel.id)]["messages"][
                             index
                         ]["role"]
                         == "assistant"
@@ -728,25 +728,25 @@ class Commands(commands.Cog):
         if interaction.channel.id in self.bot.running_bots.keys():
             if message.author == self.bot.user:
                 for i in range(
-                    len(self.bot.running_bots[message.channel.id]["messages"])
+                    len(self.bot.running_bots[str(message.channel.id)]["messages"])
                 ):
                     index = (
-                        len(self.bot.running_bots[message.channel.id]["messages"])
+                        len(self.bot.running_bots[str(message.channel.id)]["messages"])
                         - i
                         - 1
                     )  # bottom up for better performance
 
                     if (
-                        self.bot.running_bots[message.channel.id]["messages"][index][
+                        self.bot.running_bots[str(message.channel.id)]["messages"][index][
                             "discord_message_id"
                         ]
                         == message.id
-                        and self.bot.running_bots[message.channel.id]["messages"][
+                        and self.bot.running_bots[str(message.channel.id)]["messages"][
                             index
                         ]["role"]
                         == "assistant"
                     ):
-                        new_messages = self.bot.running_bots[message.channel.id][
+                        new_messages = self.bot.running_bots[str(message.channel.id)][
                             "messages"
                         ].copy()
                         new_messages.pop(index)
@@ -758,7 +758,7 @@ class Commands(commands.Cog):
                         )
 
                         if ok:
-                            self.bot.running_bots[message.channel.id][
+                            self.bot.running_bots[str(message.channel.id)][
                                 "messages"
                             ] = new_messages
                             await message.delete()

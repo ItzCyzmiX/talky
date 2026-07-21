@@ -13,6 +13,7 @@ from bot.supabase import (
 )
 from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
 from bot.utils import sanitize_msg
+from bot.types import RunningBots, Message
 import os
 import asyncio
 
@@ -30,8 +31,8 @@ class Talky(commands.Bot):
         super().__init__(command_prefix="!", description=DESCRITPTION, intents=intents)
 
         self.supabase = supabase
-        self.running_bots = {}
-        self.openrouter_models = []
+        self.running_bots: RunningBots = {}
+        self.openrouter_models: list[str] = []
 
     async def setup_hook(self):
         await self.load_extension("bot.commands")
@@ -43,6 +44,9 @@ class Talky(commands.Bot):
 
         bot_category = self.get_channel(BOTS_CATEGORY_ID)
 
+        if bot_category is None:
+            return
+
         channels = bot_category.text_channels
         channel_ids = list(map(lambda x: x.id, channels))
 
@@ -51,6 +55,7 @@ class Talky(commands.Bot):
         db_bot_ids = await get_bots_with_ids(self.supabase, channel_ids)
 
         for c in channels:
+
             if c.id not in db_bot_ids:
                 await c.delete()
                 continue
@@ -59,7 +64,7 @@ class Talky(commands.Bot):
             messages = await get_messages(self.supabase, c.id)
             gpt = await get_chat_model(self.supabase, c.id)
 
-            self.running_bots[c.id] = {
+            self.running_bots[str(c.id)] = {
                 "admins": admins,
                 "messages": messages,
                 "gpt": gpt,
@@ -74,18 +79,18 @@ class Talky(commands.Bot):
 
         if message.channel.id in self.running_bots.keys():
             try:
-                for i in range(len(self.running_bots[message.channel.id]["messages"])):
+                for i in range(len(self.running_bots[str(message.channel.id)]["messages"])):
                     index = (
-                        len(self.running_bots[message.channel.id]["messages"]) - i - 1
+                        len(self.running_bots[str(message.channel.id)]["messages"]) - i - 1
                     )  # bottom up for better performance
 
                     if (
-                        self.running_bots[message.channel.id]["messages"][index][
+                        self.running_bots[str(message.channel.id)]["messages"][index][
                             "discord_message_id"
                         ]
                         == message.id
                     ):
-                        new_messages = self.running_bots[message.channel.id][
+                        new_messages = self.running_bots[str(message.channel.id)][
                             "messages"
                         ].copy()
                         new_messages.pop(index)
@@ -96,7 +101,7 @@ class Talky(commands.Bot):
                             {"messages": new_messages},
                         )
                         if ok:
-                            self.running_bots[message.channel.id][
+                            self.running_bots[str(message.channel.id)][
                                 "messages"
                             ] = new_messages
                         await asyncio.sleep(0.3)
@@ -112,19 +117,19 @@ class Talky(commands.Bot):
             if before != after:
                 try:
                     for i in range(
-                        len(self.running_bots[after.channel.id]["messages"])
+                        len(self.running_bots[str(after.channel.id)]["messages"])
                     ):
                         index = (
-                            len(self.running_bots[after.channel.id]["messages"]) - i - 1
+                            len(self.running_bots[str(after.channel.id)]["messages"]) - i - 1
                         )
 
                         if (
-                            self.running_bots[after.channel.id]["messages"][index][
+                            self.running_bots[str(after.channel.id)]["messages"][index][
                                 "discord_message_id"
                             ]
                             == after.id
                         ):
-                            new_messages = self.running_bots[after.channel.id][
+                            new_messages = self.running_bots[str(after.channel.id)][
                                 "messages"
                             ].copy()
 
@@ -140,7 +145,7 @@ class Talky(commands.Bot):
                                 {"messages": new_messages},
                             )
                             if ok:
-                                self.running_bots[after.channel.id][
+                                self.running_bots[str(after.channel.id)][
                                     "messages"
                                 ] = new_messages
                             await asyncio.sleep(0.3)
@@ -173,9 +178,9 @@ class Talky(commands.Bot):
 
                 content = None
 
-                model = self.running_bots.get(message.channel.id, {}).get("gpt", None)
+                model = self.running_bots.get(str(message.channel.id), {}).get("gpt", None)
 
-                old_msgs = self.running_bots.get(message.channel.id, {}).get(
+                old_msgs = self.running_bots.get(str(message.channel.id), {}).get(
                     "messages", None
                 )
 
@@ -190,9 +195,11 @@ class Talky(commands.Bot):
                         return
 
                     for a in message.attachments:
+                        if a.content_type is None:
+                            continue
                         if (
                             not a.content_type.startswith("image/")
-                            or a.content_type == "iamge/gif"
+                            or a.content_type == "image/gif"
                         ):
                             await message.channel.send(
                                 "File type invalid (make sure its an image not a GIF)!",
@@ -328,10 +335,10 @@ class Talky(commands.Bot):
             if not did_update:
                 await response_message.delete()
 
-            self.running_bots[message.channel.id]["messages"] = new_msgs
+            self.running_bots[str(message.channel.id)]["messages"] = new_msgs
 
             if revert_to_llama:
-                await change_bot_gpt(message.channel.id, "llama")
+                await change_bot_gpt(self.supabase, message.channel.id, "llama")
 
 
 async def run_bot():
