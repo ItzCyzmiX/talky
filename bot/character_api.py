@@ -1,8 +1,9 @@
-from dotenv import load_dotenv
 import os
+
 from openrouter import OpenRouter
 from groq import AsyncGroq
 
+from dotenv import load_dotenv
 load_dotenv()
 
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))

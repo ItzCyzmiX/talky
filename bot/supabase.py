@@ -1,5 +1,6 @@
-from supabase import acreate_client, AsyncClient
 import os
+
+from supabase import acreate_client, AsyncClient
 
 from bot.types import DBBot, Message
 

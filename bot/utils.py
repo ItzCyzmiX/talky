@@ -2,6 +2,11 @@ import os
 import aiohttp
 import re
 
+from bot.supabase import update_messages
+from collections.abc import Callable
+from bot.types import Message
+from bot.consts import GUILD, MESSAGE_HISTOY_LIMIT
+
 SYSTEM_PROMPT: str = """You are {bot_name}. Not an AI pretending to be {bot_name} — as far as this conversation is concerned, you ARE {bot_name}, period.
 
 Speak the way {bot_name} actually speaks: same vocabulary, tone, attitude, sentence length, and quirks. Draw on everything you know about how {bot_name} talks, thinks, and reacts. Stay true to their personality even when it's rude, blunt, arrogant, warm, chaotic, or whatever fits them — don't soften it into generic politeness.
@@ -48,7 +53,77 @@ async def fetch_gif(bot_name: str) -> str:
 
 def sanitize_msg(string: str) -> str:
     content = string
-    content = re.sub(r"@(everyone|here)", r"@\u200b\1", content)
+    # content = re.sub(r"@(everyone|here)", r"@\u200b\1", content)
     content = re.sub(r"<@&?!?\d+>", "`@mention`", content)
-    content = re.sub(r"[\u200B-\u200D\uFEFF\u2060]", "", content)
+    # content = re.sub(r"[\u200B-\u200D\uFEFF\u2060]", "", content)
     return content.strip()
+
+
+async def alter_msg(bot, channel_id: int, message_id: int, callback: Callable[[Message], Message | None]):
+    print(len(bot.running_bots[str(channel_id)]["messages"]))
+    try:
+        for i in range(
+            len(bot.running_bots[str(channel_id)]["messages"])
+        ):
+            index = (
+                len(bot.running_bots[str(channel_id)]["messages"]) - i - 1
+            )
+
+            if (
+                bot.running_bots[str(channel_id)]["messages"][index][
+                    "discord_message_id"
+                ]
+                == message_id
+            ):
+                print('found')
+                new_messages = bot.running_bots[str(channel_id)]["messages"].copy()
+                new_message = callback(
+                    new_messages[index]
+                )
+
+                if new_message is None:
+                    new_messages.pop(index) 
+                else:
+                    new_messages[index] = new_message
+
+
+                print(new_message)
+
+                ok = await update_messages(
+                    bot.supabase,
+                    channel_id,
+                    {"messages": new_messages},
+                )
+                if ok:
+                    bot.running_bots[str(channel_id)][
+                        "messages"
+                    ] = new_messages
+
+                break
+
+    except KeyError:
+        pass
+
+def startup_print(bot):
+    status = f"""
+ - Bot User: {bot.user}
+ - Guild ID: {GUILD.id}
+ - Running Bots ({len(bot.running_bots)}):
+"""
+    for cid, data in bot.running_bots.items():
+        status += f" ▪ #{cid} | Admins: {len(data.get('admins', []))} | Msgs: {len(data.get('messages', []))} | Model: {data.get('gpt', 'N/A')}   \n"
+    
+    status += f"""
+ - OpenRouter Models ({len(bot.openrouter_models)}):
+
+"""
+    for m in bot.openrouter_models[:3]:
+        status += f" ▪ {m}\n"
+    if len(bot.openrouter_models) > 3:
+        status += f" ... and {len(bot.openrouter_models) - 3} more   \n"
+
+        status += f"""
+ - DB: {'✅ Connected' if bot.supabase else '❌ Disconnected'}
+ - Message Limit: {MESSAGE_HISTOY_LIMIT}
+"""
+    print(status)

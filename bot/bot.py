@@ -1,21 +1,23 @@
+import os
+
 import discord
 from discord.ext import commands
+
 from dotenv import load_dotenv
-from bot.character_api import send_msg_to_bot, _get_openrouter_models
+
+from bot.character_api import send_msg_to_bot
+from bot.cron import CronCog
 from bot.supabase import (
     get_messages,
     update_messages,
     create_supabase,
-    get_bots_with_ids,
     get_chat_model,
     change_bot_gpt,
-    get_admins,
 )
-from bot.consts import GUILD, DESCRITPTION, BOTS_CATEGORY_ID, MESSAGE_HISTOY_LIMIT
-from bot.utils import sanitize_msg
-from bot.types import RunningBots, Message
-import os
-import asyncio
+from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT
+from bot.utils import alter_msg, sanitize_msg
+from bot.types import RunningBots
+
 
 load_dotenv()
 
@@ -38,127 +40,48 @@ class Talky(commands.Bot):
         await self.load_extension("bot.commands")
 
     async def on_ready(self):
-        print(f"We have logged in as {self.user}")
 
         await self.tree.sync(guild=GUILD)
 
-        bot_category = self.get_channel(BOTS_CATEGORY_ID)
-
-        if bot_category is None:
+        await self.add_cog(CronCog(bot=self))
+        
+    async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
+        if payload.cached_message is None: # message is out cache (and probably out of the bot's memory anyways)
+            return
+        
+        if payload.cached_message.author == self.user:
             return
 
-        channels = bot_category.text_channels
-        channel_ids = list(map(lambda x: x.id, channels))
+        if str(payload.channel_id) in self.running_bots.keys():
+            await alter_msg(
+                bot=self, 
+                channel_id=payload.channel_id,
+                message_id=payload.message_id, 
+                callback=lambda msg: None
+            )
 
-        await asyncio.sleep(0.3)
-
-        db_bot_ids = await get_bots_with_ids(self.supabase, channel_ids)
-
-        for c in channels:
-
-            if c.id not in db_bot_ids:
-                await c.delete()
-                continue
-
-            admins = await get_admins(self.supabase, c.id)
-            messages = await get_messages(self.supabase, c.id)
-            gpt = await get_chat_model(self.supabase, c.id)
-
-            self.running_bots[str(c.id)] = {
-                "admins": admins,
-                "messages": messages,
-                "gpt": gpt,
-            }
-
-        await asyncio.sleep(0.3)
-        self.openrouter_models = await _get_openrouter_models()
-
-    async def on_message_delete(self, message: discord.Message):
-        if message.author == self.user:
+    async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
+        if payload.message.author.bot:
             return
 
-        if message.channel.id in self.running_bots.keys():
-            try:
-                for i in range(len(self.running_bots[str(message.channel.id)]["messages"])):
-                    index = (
-                        len(self.running_bots[str(message.channel.id)]["messages"]) - i - 1
-                    )  # bottom up for better performance
-
-                    if (
-                        self.running_bots[str(message.channel.id)]["messages"][index][
-                            "discord_message_id"
-                        ]
-                        == message.id
-                    ):
-                        new_messages = self.running_bots[str(message.channel.id)][
-                            "messages"
-                        ].copy()
-                        new_messages.pop(index)
-
-                        ok = await update_messages(
-                            self.supabase,
-                            message.channel.id,
-                            {"messages": new_messages},
-                        )
-                        if ok:
-                            self.running_bots[str(message.channel.id)][
-                                "messages"
-                            ] = new_messages
-                        await asyncio.sleep(0.3)
-                        break
-            except KeyError:
-                pass  # message delted from early messages (not in chat history anymore) or by the bot due to an error
-
-    async def on_message_edit(self, before: discord.Message, after: discord.Message):
-        if before.author.bot:
-            return
-
-        if after.channel.id in self.running_bots.keys():
-            if before != after:
-                try:
-                    for i in range(
-                        len(self.running_bots[str(after.channel.id)]["messages"])
-                    ):
-                        index = (
-                            len(self.running_bots[str(after.channel.id)]["messages"]) - i - 1
-                        )
-
-                        if (
-                            self.running_bots[str(after.channel.id)]["messages"][index][
-                                "discord_message_id"
-                            ]
-                            == after.id
-                        ):
-                            new_messages = self.running_bots[str(after.channel.id)][
-                                "messages"
-                            ].copy()
-
-                            new_messages[index] = {
-                                "role": "user",
-                                "discord_message_id": after.id,
-                                "content": after.content,
-                            }
-
-                            ok = await update_messages(
-                                self.supabase,
-                                after.channel.id,
-                                {"messages": new_messages},
-                            )
-                            if ok:
-                                self.running_bots[str(after.channel.id)][
-                                    "messages"
-                                ] = new_messages
-                            await asyncio.sleep(0.3)
-                            break
-                except KeyError:
-                    pass  # message edited from early messages (not in chat history anymore)
+        if str(payload.channel_id) in self.running_bots.keys():
+            await alter_msg(
+                bot=self, 
+                channel_id=payload.channel_id,
+                message_id=payload.message_id, 
+                callback=lambda msg: { 
+                    "content": payload.data["content"], 
+                    "discord_message_id" : payload.message_id, 
+                    "role": "user" 
+                }
+            )
 
     async def on_message(self, message: discord.Message):
 
         if message.author == self.user:
             return
 
-        if message.channel.id in self.running_bots.keys():
+        if str(message.channel.id) in self.running_bots.keys():
 
             async with message.channel.typing():
 
