@@ -62,34 +62,34 @@ def sanitize_msg(string: str) -> str:
     return content.strip()
 
 
-async def alter_msg(bot: "Talky", channel_id: int, message_id: int, role: Literal["assistant", "user"], callback: Callable[[Message], Message | None]) -> bool:
+async def alter_msg(
+    bot: "Talky",
+    channel_id: int,
+    message_id: int,
+    role: Literal["assistant", "user"],
+    callback: Callable[[Message], Message | None],
+) -> bool:
     ok = False
     try:
-        for i in range(
-            len(bot.running_bots[str(channel_id)]["messages"])
-        ):
+        str_channel_id = str(channel_id)
+
+        for i in range(len(bot.running_bots[str_channel_id]["messages"])):
             index = (
-                len(bot.running_bots[str(channel_id)]["messages"]) - i - 1
-            ) # bottom up search faster for new messages wich are likely to be altered
+                len(bot.running_bots[str_channel_id]["messages"]) - i - 1
+            )  # bottom up search faster for new messages wich are likely to be altered
 
             if (
-                bot.running_bots[str(channel_id)]["messages"][index][
+                bot.running_bots[str_channel_id]["messages"][index][
                     "discord_message_id"
                 ]
                 == message_id
-                and
-                bot.running_bots[str(channel_id)]["messages"][index][
-                    "role"
-                ]
-                == role
+                and bot.running_bots[str_channel_id]["messages"][index]["role"] == role
             ):
-                new_messages = bot.running_bots[str(channel_id)]["messages"].copy()
-                new_message = callback(
-                    new_messages[index]
-                )
+                new_messages = bot.running_bots[str_channel_id]["messages"].copy()
+                new_message = callback(new_messages[index])
 
                 if new_message is None:
-                    new_messages.pop(index) 
+                    new_messages.pop(index)
                 else:
                     new_messages[index] = new_message
 
@@ -99,15 +99,14 @@ async def alter_msg(bot: "Talky", channel_id: int, message_id: int, role: Litera
                     {"messages": new_messages},
                 )
                 if ok:
-                    bot.running_bots[str(channel_id)][
-                        "messages"
-                    ] = new_messages
+                    bot.running_bots[str_channel_id]["messages"] = new_messages
                 break
-        
+
     except KeyError:
         pass
     finally:
         return ok
+
 
 def startup_print(bot):
     status = f"""
@@ -117,7 +116,7 @@ def startup_print(bot):
 """
     for cid, data in bot.running_bots.items():
         status += f" ▪ #{cid} | Admins: {len(data.get('admins', []))} | Msgs: {len(data.get('messages', []))} | Model: {data.get('gpt', 'N/A')}   \n"
-    
+
     status += f"""
  - OpenRouter Models ({len(bot.openrouter_models)}):
 

@@ -9,6 +9,7 @@ from bot.bot import Talky
 from bot.supabase import update_messages
 from bot.utils import alter_msg
 
+
 class ContextCommands(commands.Cog):
     def __init__(self, bot: Talky):
         self.bot = bot
@@ -24,7 +25,6 @@ class ContextCommands(commands.Cog):
         self.bot.tree.add_command(self.delete_ctx)
         self.bot.tree.add_command(self.edit_ctx)
 
-
     # not using alter_msg because the callback is gonna be async
     async def edit(self, interaction: discord.Interaction, message: discord.Message):
         if str(interaction.channel.id) in self.bot.running_bots.keys():
@@ -39,9 +39,9 @@ class ContextCommands(commands.Cog):
                     )
 
                     if (
-                        self.bot.running_bots[str(message.channel.id)]["messages"][index][
-                            "discord_message_id"
-                        ]
+                        self.bot.running_bots[str(message.channel.id)]["messages"][
+                            index
+                        ]["discord_message_id"]
                         == message.id
                         and self.bot.running_bots[str(message.channel.id)]["messages"][
                             index
@@ -67,7 +67,7 @@ class ContextCommands(commands.Cog):
                     channel_id=interaction.channel.id,
                     message_id=message.id,
                     role="assistant",
-                    callback=lambda msg: None
+                    callback=lambda msg: None,
                 )
 
                 if ok:

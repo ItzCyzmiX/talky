@@ -13,10 +13,10 @@ from bot.utils import sys_message, sanitize_msg, fetch_gif
 from bot.consts import BOT_CREATION_CHANNEL, BOTS_CATEGORY_ID
 from bot.supabase import new_bot
 
+
 class GeneralCommands(commands.Cog):
     def __init__(self, bot: Talky):
         self.bot = bot
-
 
     @app_commands.command(name="help", description="Get commands")
     @app_commands.guilds(GUILD)
@@ -66,7 +66,7 @@ class GeneralCommands(commands.Cog):
             ephemeral=True,
             delete_after=DELETE_DELAY,
         )
-    
+
     @app_commands.command(name="talk", description="Create a new chat bot")
     @app_commands.describe(
         bot_name="Name of the bot",

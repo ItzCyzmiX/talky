@@ -18,7 +18,6 @@ from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT
 from bot.utils import alter_msg, sanitize_msg
 from bot.types import RunningBots
 
-
 load_dotenv()
 
 
@@ -44,21 +43,23 @@ class Talky(commands.Bot):
         await self.tree.sync(guild=GUILD)
 
         await self.add_cog(CronCog(bot=self))
-        
+
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
-        if payload.cached_message is None: # message is out cache (and probably out of the bot's memory anyways)
+        if (
+            payload.cached_message is None
+        ):  # message is out cache (and probably out of the bot's memory anyways)
             return
-        
+
         if payload.cached_message.author == self.user:
             return
 
         if str(payload.channel_id) in self.running_bots.keys():
             await alter_msg(
-                bot=self, 
+                bot=self,
                 channel_id=payload.channel_id,
-                message_id=payload.message_id, 
+                message_id=payload.message_id,
                 role="user",
-                callback=lambda msg: None
+                callback=lambda msg: None,
             )
 
     async def on_raw_message_edit(self, payload: discord.RawMessageUpdateEvent):
@@ -67,15 +68,15 @@ class Talky(commands.Bot):
 
         if str(payload.channel_id) in self.running_bots.keys():
             await alter_msg(
-                bot=self, 
+                bot=self,
                 channel_id=payload.channel_id,
-                message_id=payload.message_id, 
+                message_id=payload.message_id,
                 role="user",
-                callback=lambda msg: { 
-                    "content": payload.data["content"], 
-                    "discord_message_id" : payload.message_id, 
-                    "role": "user" 
-                }
+                callback=lambda msg: {
+                    "content": payload.data["content"],
+                    "discord_message_id": payload.message_id,
+                    "role": "user",
+                },
             )
 
     async def on_message(self, message: discord.Message):
@@ -103,7 +104,9 @@ class Talky(commands.Bot):
 
                 content = None
 
-                model = self.running_bots.get(str(message.channel.id), {}).get("gpt", None)
+                model = self.running_bots.get(str(message.channel.id), {}).get(
+                    "gpt", None
+                )
 
                 old_msgs = self.running_bots.get(str(message.channel.id), {}).get(
                     "messages", None

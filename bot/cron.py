@@ -1,4 +1,4 @@
-from datetime  import datetime
+from datetime import datetime
 import asyncio
 
 from discord.ext import tasks, commands
@@ -19,16 +19,15 @@ class CronCog(commands.Cog):
     @tasks.loop(hours=12)
     async def update_openrouter_models(self):
         print(f"[{datetime.now()}] Fetching new openrouter models...")
-        
+
         await self.bot.wait_until_ready()
 
         self.bot.openrouter_models = await _get_openrouter_models()
 
-
     @tasks.loop(hours=1)
     async def sync_cache(self):
         print(f"[{datetime.now()}] Syncing cache...")
-        
+
         await self.bot.wait_until_ready()
 
         bot_category = self.bot.get_channel(BOTS_CATEGORY_ID)
@@ -60,7 +59,7 @@ class CronCog(commands.Cog):
             }
         await asyncio.sleep(0.3)
         startup_print(bot=self.bot)
-    
+
     def cog_unload(self):
         self.update_openrouter_models.cancel()
         self.sync_cache.cancel()
