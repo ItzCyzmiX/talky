@@ -57,6 +57,7 @@ class Talky(commands.Bot):
                 bot=self, 
                 channel_id=payload.channel_id,
                 message_id=payload.message_id, 
+                role="user",
                 callback=lambda msg: None
             )
 
@@ -69,6 +70,7 @@ class Talky(commands.Bot):
                 bot=self, 
                 channel_id=payload.channel_id,
                 message_id=payload.message_id, 
+                role="user",
                 callback=lambda msg: { 
                     "content": payload.data["content"], 
                     "discord_message_id" : payload.message_id, 

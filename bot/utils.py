@@ -2,10 +2,15 @@ import os
 import aiohttp
 import re
 
+from typing import Literal, TYPE_CHECKING
+
 from bot.supabase import update_messages
 from collections.abc import Callable
 from bot.types import Message
 from bot.consts import GUILD, MESSAGE_HISTOY_LIMIT
+
+if TYPE_CHECKING:
+    from bot.bot import Talky
 
 SYSTEM_PROMPT: str = """You are {bot_name}. Not an AI pretending to be {bot_name} — as far as this conversation is concerned, you ARE {bot_name}, period.
 
@@ -53,29 +58,31 @@ async def fetch_gif(bot_name: str) -> str:
 
 def sanitize_msg(string: str) -> str:
     content = string
-    # content = re.sub(r"@(everyone|here)", r"@\u200b\1", content)
     content = re.sub(r"<@&?!?\d+>", "`@mention`", content)
-    # content = re.sub(r"[\u200B-\u200D\uFEFF\u2060]", "", content)
     return content.strip()
 
 
-async def alter_msg(bot, channel_id: int, message_id: int, callback: Callable[[Message], Message | None]):
-    print(len(bot.running_bots[str(channel_id)]["messages"]))
+async def alter_msg(bot: "Talky", channel_id: int, message_id: int, role: Literal["assistant", "user"], callback: Callable[[Message], Message | None]) -> bool:
+    ok = False
     try:
         for i in range(
             len(bot.running_bots[str(channel_id)]["messages"])
         ):
             index = (
                 len(bot.running_bots[str(channel_id)]["messages"]) - i - 1
-            )
+            ) # bottom up search faster for new messages wich are likely to be altered
 
             if (
                 bot.running_bots[str(channel_id)]["messages"][index][
                     "discord_message_id"
                 ]
                 == message_id
+                and
+                bot.running_bots[str(channel_id)]["messages"][index][
+                    "role"
+                ]
+                == role
             ):
-                print('found')
                 new_messages = bot.running_bots[str(channel_id)]["messages"].copy()
                 new_message = callback(
                     new_messages[index]
@@ -86,9 +93,6 @@ async def alter_msg(bot, channel_id: int, message_id: int, callback: Callable[[M
                 else:
                     new_messages[index] = new_message
 
-
-                print(new_message)
-
                 ok = await update_messages(
                     bot.supabase,
                     channel_id,
@@ -98,11 +102,12 @@ async def alter_msg(bot, channel_id: int, message_id: int, callback: Callable[[M
                     bot.running_bots[str(channel_id)][
                         "messages"
                     ] = new_messages
-
                 break
-
+        
     except KeyError:
         pass
+    finally:
+        return ok
 
 def startup_print(bot):
     status = f"""
@@ -117,10 +122,10 @@ def startup_print(bot):
  - OpenRouter Models ({len(bot.openrouter_models)}):
 
 """
-    for m in bot.openrouter_models[:3]:
+    for m in bot.openrouter_models[:5]:
         status += f" ▪ {m}\n"
-    if len(bot.openrouter_models) > 3:
-        status += f" ... and {len(bot.openrouter_models) - 3} more   \n"
+    if len(bot.openrouter_models) > 5:
+        status += f" ... and {len(bot.openrouter_models) - 5} more   \n"
 
         status += f"""
  - DB: {'✅ Connected' if bot.supabase else '❌ Disconnected'}

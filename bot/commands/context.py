@@ -7,7 +7,7 @@ from discord.ext import commands
 from bot.consts import GUILD
 from bot.bot import Talky
 from bot.supabase import update_messages
-
+from bot.utils import alter_msg
 
 class ContextCommands(commands.Cog):
     def __init__(self, bot: Talky):
@@ -24,6 +24,8 @@ class ContextCommands(commands.Cog):
         self.bot.tree.add_command(self.delete_ctx)
         self.bot.tree.add_command(self.edit_ctx)
 
+
+    # not using alter_msg because the callback is gonna be async
     async def edit(self, interaction: discord.Interaction, message: discord.Message):
         if str(interaction.channel.id) in self.bot.running_bots.keys():
             if message.author == self.bot.user:
@@ -34,7 +36,7 @@ class ContextCommands(commands.Cog):
                         len(self.bot.running_bots[str(message.channel.id)]["messages"])
                         - i
                         - 1
-                    )  # bottom up for better performance
+                    )
 
                     if (
                         self.bot.running_bots[str(message.channel.id)]["messages"][index][
@@ -60,51 +62,24 @@ class ContextCommands(commands.Cog):
     async def delete(self, interaction: discord.Interaction, message: discord.Message):
         if str(interaction.channel.id) in self.bot.running_bots.keys():
             if message.author == self.bot.user:
-                for i in range(
-                    len(self.bot.running_bots[str(message.channel.id)]["messages"])
-                ):
-                    index = (
-                        len(self.bot.running_bots[str(message.channel.id)]["messages"])
-                        - i
-                        - 1
-                    )  # bottom up for better performance
+                ok = await alter_msg(
+                    bot=self.bot,
+                    channel_id=interaction.channel.id,
+                    message_id=message.id,
+                    role="assistant",
+                    callback=lambda msg: None
+                )
 
-                    if (
-                        self.bot.running_bots[str(message.channel.id)]["messages"][index][
-                            "discord_message_id"
-                        ]
-                        == message.id
-                        and self.bot.running_bots[str(message.channel.id)]["messages"][
-                            index
-                        ]["role"]
-                        == "assistant"
-                    ):
-                        new_messages = self.bot.running_bots[str(message.channel.id)][
-                            "messages"
-                        ].copy()
-                        new_messages.pop(index)
+                if ok:
+                    await message.delete()
+                    await interaction.response.send_message(
+                        "delted ai message!", ephemeral=True, delete_after=5
+                    )
 
-                        ok = await update_messages(
-                            self.bot.supabase,
-                            message.channel.id,
-                            {"messages": new_messages},
-                        )
-
-                        if ok:
-                            self.bot.running_bots[str(message.channel.id)][
-                                "messages"
-                            ] = new_messages
-                            await message.delete()
-                            await interaction.response.send_message(
-                                "delted ai message!", ephemeral=True, delete_after=5
-                            )
-
-                        await asyncio.sleep(0.3)
-                        return
-
-            await interaction.response.send_message(
-                "Couldn't delete the message", ephemeral=True, delete_after=10
-            )
+                else:
+                    await interaction.response.send_message(
+                        "Couldn't delete the message", ephemeral=True, delete_after=10
+                    )
 
 
 class AIEdit(
