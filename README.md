@@ -4,6 +4,9 @@ A Discord bot that lets you create isolated, persistent AI chatbots — each one
 
 ---
 
+## TEST SERVER!
+a test server for talky, feel free to join and stress test it (poor talky) [JOIN](https://discord.gg/sVB2N7uJ)
+
 ## ✨ Features
 
 ### 💬 **Isolated Chatbot Channels**
