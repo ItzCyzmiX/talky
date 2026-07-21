@@ -16,6 +16,7 @@ from bot.supabase import (
 )
 from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT
 from bot.utils import alter_msg, sanitize_msg
+from bot.github_webhook import start_github_webhook
 from bot.types import RunningBots
 
 load_dotenv()
@@ -37,6 +38,8 @@ class Talky(commands.Bot):
 
     async def setup_hook(self):
         await self.load_extension("bot.commands")
+
+        await start_github_webhook(bot=self)
 
     async def on_ready(self):
 
