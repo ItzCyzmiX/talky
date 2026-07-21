@@ -1,6 +1,6 @@
 # 🤖 Talky
 
-A Discord bot that lets you create isolated, persistent AI chatbot personas — each one living in its own channel with its own memory, admin controls, and flexible LLM selection. Chat with anyone, anywhere, about anything — the bot remembers.
+A Discord bot that lets you create isolated, persistent AI chatbots — each one living in its own channel with its own memory, admin controls, and flexible LLM selection. Chat with anyone, anywhere, about anything.
 
 ---
 
@@ -18,7 +18,7 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 - Perfect for private group discussions with AI
 
 ### 🖼️ **Image & GIF Embed Integration**
-- Upload images or GIFs in your messages
+- Upload images in your messages
 - AI analyzes images and responds based on visual content
 - Supports up to **4 images per message** (20MB total max)
 - Uses **Qwen 3.6 27B vision model** for accurate image understanding
@@ -29,7 +29,7 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 - **Vision Mode**: Automatic when images are detected (Qwen 3.6 27B)
 - **Custom Models**: Choose from 24+ OpenRouter models with `/gpt`
 - Automatic fallback to Llama if your selected model fails
-- Models are cached on startup for quick switching
+- Models are cached for quick switching
 
 ### ✏️ **Edit & Delete Messages**
 - Right-click on **any bot message** → "Delete AI message" or "Edit AI message"
@@ -44,9 +44,10 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
   - Add/kick users from private chats
   - Change the AI model with `/gpt`
   - Delete the channel with `/kill`
+  - Private the channel with `/private`
 
 ### 💾 **Persistent Memory**
-- Last 30 messages stored per channel (configurable)
+- Last 100 messages stored per channel (configurable)
 - Full conversation history in Supabase
 - AI has context from previous messages in that channel
 - Survives bot restarts
@@ -86,7 +87,7 @@ A Discord bot that lets you create isolated, persistent AI chatbot personas — 
 
 ### Image Processing
 
-- Accepts **image attachments** (PNG, JPG, GIF, WebP, etc.)
+- Accepts **image attachments** (PNG, JPG, WebP, etc.)
 - **Automatic model switching** to vision-capable Qwen model when images detected
 - Images passed as **URLs to the API** (fast, no local storage needed)
 - **Max 4 images per message**, **20MB total** to prevent API throttling
@@ -201,9 +202,9 @@ SUPABASE_SECRET_KEY=your_supabase_service_role_key
 Edit `bot/consts.py` to customize:
 
 ```python
-DESCRITPTION = "Bot to talk to ai characters!"  # Bot description
+DESCRITPTION = "Bot to talk to ai characters!"   # Bot description
 DELETE_DELAY = 15                                # Seconds before ephemeral messages disappear
-MESSAGE_HISTOY_LIMIT = 30                        # Last N messages kept in memory
+MESSAGE_HISTOY_LIMIT = 100                       # Last N messages kept in memory
 ```
 
 ### 6. Run the Bot
@@ -214,7 +215,7 @@ python main.py
 
 You should see:
 ```
-We have logged in as YourBotName#0000
+Talky started!
 ```
 
 ### 7. Invite to Your Server
