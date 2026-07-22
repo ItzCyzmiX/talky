@@ -4,7 +4,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.consts import GUILD
+from bot.consts import GUILD, BOTS_CATEGORY_ID
 from bot.bot import Talky
 from bot.supabase import update_messages, get_messages
 from bot.character_api import send_msg_to_bot
@@ -19,13 +19,19 @@ class ContextCommands(commands.Cog):
             name="Delete AI message", callback=self.delete, guild_ids=[GUILD.id]
         )
 
+        self.delete_ctx.add_check(is_in_a_chat)
+
         self.edit_ctx = app_commands.ContextMenu(
             name="Edit AI message", callback=self.edit, guild_ids=[GUILD.id]
         )
 
+        self.delete_ctx.add_check(is_in_a_chat)
+
         self.regenerate_ctx = app_commands.ContextMenu(
             name="Regenerate AI message", callback=self.regenerate, guild_ids=[GUILD.id]
         )
+
+        self.delete_ctx.add_check(is_in_a_chat)
 
         self.bot.tree.add_command(self.delete_ctx)
         self.bot.tree.add_command(self.edit_ctx)
@@ -160,7 +166,7 @@ class ContextCommands(commands.Cog):
                     "content": response,
                     "role": "assistant",
                 },
-            )   
+            )
 
             if ok:
                 await message.edit(content=response)
@@ -218,3 +224,13 @@ class AIEdit(
             await interaction.response.send_message(
                 "Edited ai message!", ephemeral=True, delete_after=5
             )
+
+
+def is_in_a_chat(interaction: discord.Interaction) -> bool:
+    if (
+        hasattr(interaction.channel, "category")
+        and interaction.channel.category is not None
+    ):
+        return interaction.channel.category.id == BOTS_CATEGORY_ID
+
+    return False
