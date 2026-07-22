@@ -2,10 +2,15 @@ from aiohttp import web
 from dotenv import load_dotenv
 from bot.consts import UPDATES_CHANNEL_ID, BOT_CREATION_CHANNEL
 
+from typing import TYPE_CHECKING
+
 load_dotenv()
 
+if TYPE_CHECKING:
+    from bot.bot import Talky
 
-def github_releases_webhook_handler(bot):
+
+def github_releases_webhook_handler(bot: "Talky"):
     async def _releases_webhook(request: web.Request) -> web.Response:
         event = request.headers.get("X-Github-Event")
 
@@ -22,6 +27,8 @@ def github_releases_webhook_handler(bot):
 
         markdown = payload["release"]["body"]
 
+        bot.version = payload["release"]["tag_name"]
+
         updates_channel = bot.get_channel(UPDATES_CHANNEL_ID)
         bot_creation_channel = bot.get_channel(BOT_CREATION_CHANNEL)
         await updates_channel.send(
@@ -33,7 +40,7 @@ def github_releases_webhook_handler(bot):
     return _releases_webhook
 
 
-async def start_github_webhook(bot):
+async def start_github_webhook(bot: "Talky"):
     app = web.Application()
     app.router.add_post("/github", github_releases_webhook_handler(bot=bot))
 

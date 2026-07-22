@@ -9,7 +9,6 @@ class Message(TypedDict):
 
 class RunningBot(TypedDict):
     admins: list[str]
-    gpt: str
     messages: list[Message]
 
 
@@ -20,4 +19,3 @@ class DBBot(TypedDict):
     id: int
     admins: list[str]
     messages: list[Message]
-    gpt: str

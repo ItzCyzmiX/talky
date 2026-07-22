@@ -108,26 +108,18 @@ async def alter_msg(
         return ok
 
 
-def startup_print(bot):
+def get_status(bot: "Talky"):
     status = f"""
+ - Talky version: {bot.version}
  - Bot User: {bot.user}
  - Guild ID: {GUILD.id}
  - Running Bots ({len(bot.running_bots)}):
 """
     for cid, data in bot.running_bots.items():
-        status += f" ▪ #{cid} | Admins: {len(data.get('admins', []))} | Msgs: {len(data.get('messages', []))} | Model: {data.get('gpt', 'N/A')}   \n"
-
-    status += f"""
- - OpenRouter Models ({len(bot.openrouter_models)}):
-
-"""
-    for m in bot.openrouter_models[:5]:
-        status += f" ▪ {m}\n"
-    if len(bot.openrouter_models) > 5:
-        status += f" ... and {len(bot.openrouter_models) - 5} more   \n"
+        status += f" ▪ #{cid} | Admins: {len(data.get('admins', []))} | Msgs: {len(data.get('messages', [])) - 1} | \n"
 
         status += f"""
  - DB: {'✅ Connected' if bot.supabase else '❌ Disconnected'}
  - Message Limit: {MESSAGE_HISTOY_LIMIT}
 """
-    print(status)
+    return status

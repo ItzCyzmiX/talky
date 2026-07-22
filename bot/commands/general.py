@@ -35,7 +35,6 @@ class GeneralCommands(commands.Cog):
                 "- `/help` — Show all available commands *(Anyone)*\n"
                 "- `/status` — Check if you're an admin in current channel *(Anyone)*\n"
                 "- `/admin <user>` — Promote a user to admin *(Admin only)*\n"
-                "- `/gpt` — Select AI model for this channel *(Admin only)*\n"
                 "- `/add <user>` — Add user to private chat *(Admin only)*\n"
                 "- `/kick <user>` — Remove user from private chat *(Admin only)*\n"
                 "- `/kill` — Delete the chatbot channel permanently *(Admin only)*\n\n"
@@ -134,7 +133,6 @@ class GeneralCommands(commands.Cog):
             self.bot.running_bots[str(new_channel.id)] = {
                 "admins": [str(interaction.user.id)],
                 "messages": [sys_message(bot_name)],
-                "gpt": "llama",
             }
 
             await new_channel.send(

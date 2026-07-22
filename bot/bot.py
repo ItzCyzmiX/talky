@@ -11,13 +11,13 @@ from bot.supabase import (
     get_messages,
     update_messages,
     create_supabase,
-    get_chat_model,
-    change_bot_gpt,
 )
 from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT
 from bot.utils import alter_msg, sanitize_msg
 from bot.github_webhook import start_github_webhook
 from bot.types import RunningBots
+
+from pprint import pprint
 
 load_dotenv()
 
@@ -34,7 +34,7 @@ class Talky(commands.Bot):
 
         self.supabase = supabase
         self.running_bots: RunningBots = {}
-        self.openrouter_models: list[str] = []
+        self.version: str = "v1"
 
     async def setup_hook(self):
         await self.load_extension("bot.commands")
@@ -101,15 +101,11 @@ class Talky(commands.Bot):
                     message.guild.default_role, overwrite=all_overwrites
                 )
 
-                revert_to_llama = False
+                model = "llama"
 
                 msg = sanitize_msg(message.content)
 
                 content = None
-
-                model = self.running_bots.get(str(message.channel.id), {}).get(
-                    "gpt", None
-                )
 
                 old_msgs = self.running_bots.get(str(message.channel.id), {}).get(
                     "messages", None
@@ -169,13 +165,6 @@ class Talky(commands.Bot):
                         ],
                     ]
 
-                if model is None:
-                    model = await get_chat_model(self.supabase, message.channel.id)
-
-                    if model is None:
-                        model = "llama"
-                        revert_to_llama = True
-
                 if old_msgs is None:
                     old_msgs = await get_messages(self.supabase, message.channel.id)
 
@@ -189,20 +178,21 @@ class Talky(commands.Bot):
                 if content is None:
                     content = f"({sanitize_msg(message.author.name)}) {msg}"
 
-                new_msgs = [
-                    *old_msgs,
+                new_msgs = old_msgs.copy()
+
+                new_msgs.append(
                     {
                         "role": "user",
                         "content": content,
                         "discord_message_id": message.id,
                     },
-                ]
+                )
 
                 new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
 
-                try:
-                    response = await send_msg_to_bot(new_msgs, model)
-                except:
+                response = await send_msg_to_bot(new_msgs, model)
+
+                if response is None:
                     if model == "vision":
                         await message.channel.send(
                             "Uploaded image failed, try again",
@@ -210,25 +200,11 @@ class Talky(commands.Bot):
                         )
                         return
 
-                if response is None:
-                    if model != "llama" and model != "vision":
-
-                        await message.channel.send(
-                            f"{model} failed to generate a response, using llama...",
-                            delete_after=10,
-                        )
-
-                        response = await send_msg_to_bot(new_msgs, "llama")
-                        revert_to_llama = True
-
-                        if response is None:
-                            await message.channel.send(
-                                f"{model} failed to generate a response, try again",
-                                delete_after=10,
-                            )
-                            await change_bot_gpt(message.channel.id, "llama")
-
-                        return
+                    await message.channel.send(
+                        f"{model} failed to generate a response, try again...",
+                        delete_after=10,
+                    )
+                    return
 
                 response_message = await message.channel.send(
                     f"{message.channel.name}: {sanitize_msg(response)}"
@@ -245,19 +221,21 @@ class Talky(commands.Bot):
                 )
 
             new_msgs = new_msgs[:-1]
-            new_msgs = [
-                *new_msgs,
-                {
-                    "role": "user",
-                    "content": msg,
-                    "discord_message_id": message.id,
-                },
-                {
-                    "role": "assistant",
-                    "content": sanitize_msg(response),
-                    "discord_message_id": response_message.id,
-                },
-            ]
+
+            new_msgs.extend(
+                [
+                    {
+                        "role": "user",
+                        "content": msg,
+                        "discord_message_id": message.id,
+                    },
+                    {
+                        "role": "assistant",
+                        "content": sanitize_msg(response),
+                        "discord_message_id": response_message.id,
+                    },
+                ]
+            )
 
             did_update = await update_messages(
                 self.supabase, message.channel.id, {"messages": new_msgs}
@@ -267,9 +245,6 @@ class Talky(commands.Bot):
                 await response_message.delete()
 
             self.running_bots[str(message.channel.id)]["messages"] = new_msgs
-
-            if revert_to_llama:
-                await change_bot_gpt(self.supabase, message.channel.id, "llama")
 
 
 async def run_bot():

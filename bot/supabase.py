@@ -133,22 +133,3 @@ async def get_bot(supabase: AsyncClient, _id: int) -> DBBot | None:
     except (KeyError, IndexError) as e:
         print(f"No such bot: {str(e)}")
         return None
-
-
-async def change_bot_gpt(supabase: AsyncClient, _id: int, model: str = "llama") -> bool:
-    try:
-        _ = await supabase.from_("chats").update({"gpt": model}).eq("id", _id).execute()
-        return True
-    except Exception as e:
-        print("Error changing bot's model: ", str(e))
-        return False
-
-
-async def get_chat_model(supabase: AsyncClient, _id: int) -> str | None:
-
-    res = await supabase.from_("chats").select("gpt").eq("id", _id).execute()
-    try:
-        return res.model_dump()["data"][0]["gpt"]
-    except (KeyError, IndexError) as e:
-        print(f"No such bot: {str(e)}")
-        return None

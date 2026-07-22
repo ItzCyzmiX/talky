@@ -1,6 +1,6 @@
 # 🤖 Talky
 
-A Discord bot that lets you create isolated, persistent AI chatbots — each one living in its own channel with its own memory, admin controls, and flexible LLM selection. Chat with anyone, anywhere, about anything.
+A Discord bot that lets you create isolated, persistent AI chatbots — each one living in its own channel with its own memory, admin controls, Chat with anyone, anywhere, about anything.
 
 ---
 
@@ -30,9 +30,7 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 ### 🧠 **Flexible AI Model Selection**
 - **Default**: Llama 3.3 70B (via Groq) — fast, reliable, and free
 - **Vision Mode**: Automatic when images are detected (Qwen 3.6 27B)
-- **Custom Models**: Choose from 24+ OpenRouter models with `/gpt`
-- Automatic fallback to Llama if your selected model fails
-- Models are cached for quick switching
+
 
 ### ✏️ **Edit & Delete Messages**
 - Right-click on **any bot message** → "Delete AI message" or "Edit AI message"
@@ -74,7 +72,6 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 | `id` | bigint | Discord channel ID (1:1 mapping) |
 | `admins` | text[] | User IDs with admin permissions |
 | `messages` | jsonb | Full message history with Discord message IDs |
-| `gpt` | text | Selected AI model (defaults to "llama") |
 | `bot_name` | text | Name of the chatbot persona |
 
 ### Message Flow
@@ -83,10 +80,9 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 2. If images are attached, bot switches to **vision mode** automatically
 3. Bot retrieves the channel's message history from in-memory cache
 4. Bot formats messages with usernames and image URLs: `(username) message content` + images
-5. Selected AI model (or vision model) generates a response with full context
+5. Llama (or vision model) generates a response with full context
 6. Response is sent to Discord and saved to cache & database
 7. If user edits/deletes → both Discord and database are updated
-8. If a custom model fails → automatically reverts to Llama
 
 ### Image Processing
 
@@ -106,7 +102,6 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 | `/help` | — | Show all available commands | Anyone (in creation channel) |
 | `/status` | — | Check if you're an admin in current channel | Anyone |
 | `/admin` | `<user>` | Promote a user to admin | Admin only |
-| `/gpt` | — | Select AI model for this channel | Admin only |
 | `/add` | `<user>` | Add user to private chat | Admin only |
 | `/private` | — | Turns public chat to private | Admin only |
 | `/kick` | `<user>` | Remove user from private chat | Admin only |
@@ -132,7 +127,6 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
   - Permissions: **Manage Channels**, **Send Messages**, **Embed Links**
   - ([Create at Discord Developer Portal](https://discord.com/developers/applications))
 - **Groq API key** ([console.groq.com](https://console.groq.com/)) — for Llama and vision models
-- **OpenRouter API key** for model selection ([openrouter.ai](https://openrouter.ai))
 - **Giphy API key** for bot GIFs ([developers.giphy.com](https://developers.giphy.com/))
 - **Supabase project** ([supabase.com](https://supabase.com/))
 
@@ -160,7 +154,6 @@ Create a table named `chats` with these columns:
 | `admins` | text[] | ✅ | Array of user ID strings |
 | `bot_name` | text | ✅ | Name of the chatbot |
 | `messages` | jsonb | ✅ | Message history JSON (includes discord_message_id for each message) |
-| `gpt` | text | ✅ | Selected AI model (defaults to "llama") |
 
 **Example SQL:**
 ```sql
@@ -169,7 +162,6 @@ CREATE TABLE chats (
   admins TEXT[],
   bot_name TEXT,
   messages JSONB,
-  gpt TEXT DEFAULT 'llama'
 );
 ```
 
@@ -186,7 +178,7 @@ BOT_CREATION_CHANNEL_ID=your_channel_id
 
 # AI Models
 GROQ_API_KEY=your_groq_api_key
-OPENROUTER_KEY=your_openrouter_api_key
+
 
 # Media
 GIPHY_KEY=your_giphy_api_key
@@ -240,7 +232,6 @@ Or manually:
 
 - **discord.py 2.7.1** — Discord bot framework
 - **groq 0.18.0** — Groq API client (Llama models + vision)
-- **openrouter 0.11.44** — OpenRouter API client (24+ models)
 - **python-dotenv 1.0.1** — Environment variable management
 - **aiohttp 3.13.3** — Async HTTP (Giphy API)
 - **supabase 2.27.2** — Database client

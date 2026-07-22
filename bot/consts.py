@@ -15,4 +15,4 @@ DESCRITPTION = """Bot to talk to ai characters!"""
 
 DELETE_DELAY = 15
 
-MESSAGE_HISTOY_LIMIT = 100
+MESSAGE_HISTOY_LIMIT = 50
