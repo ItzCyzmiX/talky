@@ -8,7 +8,7 @@ from bot.consts import GUILD, BOTS_CATEGORY_ID
 from bot.bot import Talky
 from bot.supabase import update_messages, get_messages
 from bot.character_api import send_msg_to_bot
-from bot.utils import alter_msg
+from bot.utils import alter_msg, is_in_chatbot_channel
 
 
 class ContextCommands(commands.Cog):
@@ -38,146 +38,145 @@ class ContextCommands(commands.Cog):
         self.bot.tree.add_command(self.regenerate_ctx)
 
     # not using alter_msg because the callback is gonna be async
+    @is_in_chatbot_channel()
     async def edit(self, interaction: discord.Interaction, message: discord.Message):
-        if str(interaction.channel.id) in self.bot.running_bots.keys():
-            if message.author != self.bot.user:
 
-                await interaction.response.send_message(
-                    "Can only be used on bot's messages!",
-                    ephemeral=True,
-                    delete_after=5,
-                )
-                return
-
-            for i in range(
-                len(self.bot.running_bots[str(message.channel.id)]["messages"])
-            ):
-                index = (
-                    len(self.bot.running_bots[str(message.channel.id)]["messages"])
-                    - i
-                    - 1
-                )
-
-                if (
-                    self.bot.running_bots[str(message.channel.id)]["messages"][index][
-                        "discord_message_id"
-                    ]
-                    == message.id
-                    and self.bot.running_bots[str(message.channel.id)]["messages"][
-                        index
-                    ]["role"]
-                    == "assistant"
-                ):
-
-                    await interaction.response.send_modal(
-                        AIEdit(self.bot, message, index, interaction.channel.name)
-                    )
-                    await asyncio.sleep(0.3)
-                    return
+        if message.author != self.bot.user:
 
             await interaction.response.send_message(
-                "Couldn't edit the message", ephemeral=True, delete_after=10
+                "Can only be used on bot's messages!",
+                ephemeral=True,
+                delete_after=5,
+            )
+            return
+
+        for i in range(len(self.bot.running_bots[str(message.channel.id)]["messages"])):
+            index = (
+                len(self.bot.running_bots[str(message.channel.id)]["messages"]) - i - 1
             )
 
+            if (
+                self.bot.running_bots[str(message.channel.id)]["messages"][index][
+                    "discord_message_id"
+                ]
+                == message.id
+                and self.bot.running_bots[str(message.channel.id)]["messages"][index][
+                    "role"
+                ]
+                == "assistant"
+            ):
+
+                await interaction.response.send_modal(
+                    AIEdit(self.bot, message, index, interaction.channel.name)
+                )
+                await asyncio.sleep(0.3)
+                return
+
+        await interaction.response.send_message(
+            "Couldn't edit the message", ephemeral=True, delete_after=10
+        )
+
+    @is_in_chatbot_channel()
     async def delete(self, interaction: discord.Interaction, message: discord.Message):
-        if str(interaction.channel.id) in self.bot.running_bots.keys():
-            if message.author != self.bot.user:
-                await interaction.response.send_message(
-                    "Can only be used on bot's messages!",
-                    ephemeral=True,
-                    delete_after=5,
-                )
 
-            ok = await alter_msg(
-                bot=self.bot,
-                channel_id=interaction.channel.id,
-                message_id=message.id,
-                role="assistant",
-                callback=lambda msg: None,
+        if message.author != self.bot.user:
+            await interaction.response.send_message(
+                "Can only be used on bot's messages!",
+                ephemeral=True,
+                delete_after=5,
             )
 
-            if ok:
-                await message.delete()
-                await interaction.response.send_message(
-                    "delted ai message!", ephemeral=True, delete_after=5
-                )
+        ok = await alter_msg(
+            bot=self.bot,
+            channel_id=interaction.channel.id,
+            message_id=message.id,
+            role="assistant",
+            callback=lambda msg: None,
+        )
 
-            else:
-                await interaction.response.send_message(
-                    "Couldn't delete the message", ephemeral=True, delete_after=10
-                )
+        if ok:
+            await message.delete()
+            await interaction.response.send_message(
+                "delted ai message!", ephemeral=True, delete_after=5
+            )
 
+        else:
+            await interaction.response.send_message(
+                "Couldn't delete the message", ephemeral=True, delete_after=10
+            )
+
+    @is_in_chatbot_channel()
     async def regenerate(
         self, interaction: discord.Interaction, message: discord.Message
     ):
-        if str(interaction.channel.id) in self.bot.running_bots.keys():
-            if message.author != self.bot.user:
-                await interaction.response.send_message(
-                    "Can only be used on bot's messages!",
-                    ephemeral=True,
-                    delete_after=5,
-                )
 
-            old_msgs = self.bot.running_bots.get(str(message.channel.id), {}).get(
-                "messages", None
+        if message.author != self.bot.user:
+            await interaction.response.send_message(
+                "Can only be used on bot's messages!",
+                ephemeral=True,
+                delete_after=5,
             )
 
-            if old_msgs is None:
-                old_msgs = await get_messages(self.bot.supabase, message.channel.id)
+        old_msgs = self.bot.running_bots.get(str(message.channel.id), {}).get(
+            "messages", None
+        )
 
-            if old_msgs is None:
-                await interaction.response.send_message(
-                    "Couldn't regenerate the message", ephemeral=True, delete_after=10
-                )
-                return
+        if old_msgs is None:
+            old_msgs = await get_messages(self.bot.supabase, message.channel.id)
 
-            message_index = -1
+        if old_msgs is None:
+            await interaction.response.send_message(
+                "Couldn't regenerate the message", ephemeral=True, delete_after=10
+            )
+            return
 
-            for i in range(len(old_msgs)):
-                index = len(old_msgs) - i - 1
+        message_index = -1
 
-                if old_msgs[index]["discord_message_id"] == message.id:
-                    message_index = index
-                    break
+        for i in range(len(old_msgs)):
+            index = len(old_msgs) - i - 1
 
-            if message_index == -1:
-                await interaction.response.send_message(
-                    "Couldn't locate the message", ephemeral=True, delete_after=10
-                )
-                return
+            if old_msgs[index]["discord_message_id"] == message.id:
+                message_index = index
+                break
 
-            cut_msgs = old_msgs[:message_index]
+        if message_index == -1:
+            await interaction.response.send_message(
+                "Couldn't locate the message", ephemeral=True, delete_after=10
+            )
+            return
 
-            response = await send_msg_to_bot(cut_msgs, "llama")
+        cut_msgs = old_msgs[:message_index]
 
-            if response is None:
-                await interaction.response.send_message(
-                    "Couldn't regenerate the message", ephemeral=True, delete_after=10
-                )
-                return
+        response = await send_msg_to_bot(cut_msgs, "llama")
 
-            ok = await alter_msg(
-                bot=self.bot,
-                channel_id=interaction.channel.id,
-                message_id=message.id,
-                role="assistant",
-                callback=lambda msg: {
-                    "discord_message_id": message.id,
-                    "content": response,
-                    "role": "assistant",
-                },
+        if response is None:
+            await interaction.response.send_message(
+                "Couldn't regenerate the message", ephemeral=True, delete_after=10
+            )
+            return
+
+        ok = await alter_msg(
+            bot=self.bot,
+            channel_id=interaction.channel.id,
+            message_id=message.id,
+            role="assistant",
+            callback=lambda msg: {
+                "discord_message_id": message.id,
+                "content": response,
+                "role": "assistant",
+            },
+        )
+
+        if ok:
+            await message.edit(content=response)
+            await interaction.response.send_message(
+                "Edited ai message!", ephemeral=True, delete_after=5
             )
 
-            if ok:
-                await message.edit(content=response)
-                await interaction.response.send_message(
-                    "Edited ai message!", ephemeral=True, delete_after=5
-                )
-
-            else:
-                await interaction.response.send_message(
-                    "Couldn't delete the message", ephemeral=True, delete_after=10
-                )
+        else:
+            await interaction.response.send_message(
+                "Couldn't regenerate the message", ephemeral=True, delete_after=10
+            )
 
 
 class AIEdit(

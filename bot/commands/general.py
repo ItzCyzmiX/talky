@@ -8,8 +8,13 @@ from discord.ext import commands
 
 from bot.consts import BOT_CREATION_CHANNEL, GUILD, DELETE_DELAY
 from bot.bot import Talky
-from bot.commands.admin import validate_admin
-from bot.utils import sys_message, sanitize_msg, fetch_gif
+from bot.utils import (
+    sys_message,
+    sanitize_msg,
+    fetch_gif,
+    is_in_chatbot_channel,
+    _validate_admin,
+)
 from bot.consts import BOT_CREATION_CHANNEL, BOTS_CATEGORY_ID
 from bot.supabase import new_bot
 
@@ -48,18 +53,15 @@ class GeneralCommands(commands.Cog):
 
     @app_commands.command(name="status", description="Get if you are admin or not")
     @app_commands.guilds(GUILD)
+    @is_in_chatbot_channel()
     async def status(self, interaction: discord.Interaction):
-        if str(interaction.channel.id) not in self.bot.running_bots.keys():
-            await interaction.response.send_message(
-                "Use this in a chat bot channel!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
 
-        am_admin = await validate_admin(bot=self.bot, interaction=interaction)
+        am_admin = await _validate_admin(
+            bot=self.bot, channel_id=interaction.channel_id, user_id=interaction.user.id
+        )
 
         msg = "You are" + (" " if am_admin else " not ") + "admin"
+
         await interaction.response.send_message(
             msg,
             ephemeral=True,
@@ -78,13 +80,16 @@ class GeneralCommands(commands.Cog):
         bot_name: str,
         private: Optional[bool],
     ):
+
+        if interaction.channel_id != BOT_CREATION_CHANNEL:
+            await interaction.response.send_message(
+                f"Must be used in the {self.bot.get_channel(BOT_CREATION_CHANNEL).mention0} !",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
         try:
-            if interaction.channel.id != BOT_CREATION_CHANNEL:
-                await interaction.response.send_message(
-                    f"Must be used in {self.bot.get_channel(BOT_CREATION_CHANNEL).mention}!",
-                    ephemeral=True,
-                )
-                return
 
             bot_category = self.bot.get_channel(BOTS_CATEGORY_ID)
 

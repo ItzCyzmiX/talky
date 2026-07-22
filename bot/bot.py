@@ -2,6 +2,7 @@ import os
 
 import discord
 from discord.ext import commands
+from discord import app_commands
 
 from dotenv import load_dotenv
 
@@ -12,12 +13,10 @@ from bot.supabase import (
     update_messages,
     create_supabase,
 )
-from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT
+from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT, DELETE_DELAY
 from bot.utils import alter_msg, sanitize_msg
 from bot.github_webhook import start_github_webhook
 from bot.types import RunningBots
-
-from pprint import pprint
 
 load_dotenv()
 
@@ -37,6 +36,8 @@ class Talky(commands.Bot):
         self.version: str = "v1"
 
     async def setup_hook(self):
+        self.tree.on_error = self.on_tree_error
+
         await self.load_extension("bot.commands")
 
         await start_github_webhook(bot=self)
@@ -46,6 +47,24 @@ class Talky(commands.Bot):
         await self.tree.sync(guild=GUILD)
 
         await self.add_cog(CronCog(bot=self))
+
+    async def on_tree_error(
+        self, interaction: discord.Interaction, error: app_commands.AppCommandError
+    ):
+        if isinstance(error, app_commands.CheckFailure):
+            await interaction.response.send_message(
+                str(error), ephemeral=True, delete_after=DELETE_DELAY
+            )
+            return
+
+        # Fallback for all other unhandled slash command errors
+        print(f"Error in slash command: {error}")  # Or use your logger
+        if not interaction.response.is_done():
+            await interaction.response.send_message(
+                "An unexpected error occurred.",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
 
     async def on_raw_message_delete(self, payload: discord.RawMessageDeleteEvent):
         if (

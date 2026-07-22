@@ -1,5 +1,3 @@
-import asyncio
-
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -8,11 +6,9 @@ from bot.consts import GUILD, DELETE_DELAY
 from bot.bot import Talky
 from bot.supabase import (
     remove_bot,
-    is_admin,
     add_admin,
 )
-
-from pprint import pprint
+from bot.utils import is_chat_admin, is_in_chatbot_channel
 
 
 class AdminCommands(commands.Cog):
@@ -22,41 +18,15 @@ class AdminCommands(commands.Cog):
     @app_commands.command(name="admin", description="Gives admin to selected users")
     @app_commands.describe(target="The user you want to give admin to")
     @app_commands.guilds(GUILD)
+    @is_chat_admin()
+    @is_in_chatbot_channel()
     async def admin(self, interaction: discord.Interaction, target: discord.Member):
 
-        if str(interaction.channel.id) not in self.bot.running_bots.keys():
-            await interaction.response.send_message(
-                "Use this in a chat bot channel!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
-
         try:
-            can_give_admin = await validate_admin(bot=self.bot, interaction=interaction)
-
-            if not can_give_admin:
-                await interaction.response.send_message(
-                    "You must be admin of this conversation!",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                return
 
             if target.id == interaction.user.id:
                 await interaction.response.send_message(
                     "You are already admin!",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                return
-
-            target_can_give_admin = await is_admin(
-                self.bot.supabase, interaction.channel.id, target.id
-            )
-            if target_can_give_admin:
-                await interaction.response.send_message(
-                    f"{target.mention} is already admin!",
                     ephemeral=True,
                     delete_after=DELETE_DELAY,
                 )
@@ -90,25 +60,11 @@ class AdminCommands(commands.Cog):
 
     @app_commands.command(name="kill", description="Kill this conversation")
     @app_commands.guilds(GUILD)
+    @is_chat_admin()
+    @is_in_chatbot_channel()
     async def kill(self, interaction: discord.Interaction):
 
-        if str(interaction.channel.id) not in self.bot.running_bots.keys():
-            await interaction.response.send_message(
-                "Use this in a chat bot channel!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
         try:
-            can_kill = await validate_admin(bot=self.bot, interaction=interaction)
-
-            if not can_kill:
-                await interaction.response.send_message(
-                    "You must be admin of this conversation!",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                return
 
             removed = await remove_bot(self.bot.supabase, interaction.channel.id)
             if not removed:
@@ -132,15 +88,10 @@ class AdminCommands(commands.Cog):
     @app_commands.command(name="add", description="Add user to private chat")
     @app_commands.describe(user="User to add to this private chat")
     @app_commands.guilds(GUILD)
+    @is_chat_admin()
+    @is_in_chatbot_channel()
     async def add(self, interaction: discord.Interaction, user: discord.Member):
 
-        if str(interaction.channel.id) not in self.bot.running_bots.keys():
-            await interaction.response.send_message(
-                "Use this in a chat bot channel!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
         if user == self.bot.user:
             await interaction.response.send_message(
                 "Im already in every conversation :)",
@@ -149,15 +100,6 @@ class AdminCommands(commands.Cog):
             )
             return
         try:
-            am_admin = await validate_admin(bot=self.bot, interaction=interaction)
-
-            if not am_admin:
-                await interaction.response.send_message(
-                    "You must be admin of this conversation!",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                return
 
             guild = interaction.guild
             all_overwrites = interaction.channel.overwrites_for(guild.default_role)
@@ -204,15 +146,9 @@ class AdminCommands(commands.Cog):
     @app_commands.command(name="kick", description="kick user from private chat")
     @app_commands.describe(user="User to add to this private chat")
     @app_commands.guilds(GUILD)
+    @is_chat_admin()
+    @is_in_chatbot_channel()
     async def kick(self, interaction: discord.Interaction, user: discord.Member):
-
-        if str(interaction.channel.id) not in self.bot.running_bots.keys():
-            await interaction.response.send_message(
-                "Use this in a chat bot channel!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
 
         if user == self.bot.user:
             await interaction.response.send_message(
@@ -221,17 +157,8 @@ class AdminCommands(commands.Cog):
                 delete_after=DELETE_DELAY,
             )
             return
+
         try:
-
-            am_admin = await validate_admin(bot=self.bot, interaction=interaction)
-
-            if not am_admin:
-                await interaction.response.send_message(
-                    "You must be admin of this conversation!",
-                    ephemeral=True,
-                    delete_after=DELETE_DELAY,
-                )
-                return
 
             guild = interaction.guild
             all_overwrites = interaction.channel.overwrites_for(guild.default_role)
@@ -281,25 +208,9 @@ class AdminCommands(commands.Cog):
 
     @app_commands.command(name="private", description="Make this chat private")
     @app_commands.guilds(GUILD)
+    @is_chat_admin()
+    @is_in_chatbot_channel()
     async def private(self, interaction: discord.Interaction):
-
-        if str(interaction.channel.id) not in self.bot.running_bots.keys():
-            await interaction.response.send_message(
-                "Use this in a chat bot channel!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
-
-        am_admin = await validate_admin(bot=self.bot, interaction=interaction)
-
-        if not am_admin:
-            await interaction.response.send_message(
-                "You must be admin of this conversation!",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
 
         guild = interaction.guild
         all_overwrites = interaction.channel.overwrites_for(guild.default_role)
@@ -324,18 +235,3 @@ class AdminCommands(commands.Cog):
         await interaction.response.send_message(
             "This chat is now private!", ephemeral=True, delete_after=10
         )
-
-
-async def validate_admin(bot: Talky, interaction: discord.Interaction) -> bool:
-    admins = bot.running_bots.get(str(interaction.channel.id), {}).get("admins", None)
-
-    pprint(str(interaction.user.id) in admins)
-
-    if admins is None:
-        am_admin = await is_admin(
-            bot.supabase, interaction.channel.id, interaction.user.id
-        )
-    else:
-        am_admin = str(interaction.user.id) in admins
-
-    return am_admin
