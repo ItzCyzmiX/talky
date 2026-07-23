@@ -2,7 +2,7 @@ from typing import TYPE_CHECKING
 
 from discord import app_commands, Interaction
 
-from bot.apis.supabase import is_admin
+from bot.apis.supabase import is_admin, get_character_owner
 from bot.consts import BOT_CREATION_CHANNEL
 
 if TYPE_CHECKING:
@@ -65,3 +65,20 @@ async def _validate_admin(bot: "Talky", channel_id: int, user_id: int) -> bool:
         am_admin = str(user_id) in admins
 
     return am_admin
+
+
+# stinky
+# async def is_character_owner(bot: "Talky") -> bool:
+#     async def predicate(interaction: Interaction) -> bool:
+#         bot: "Talky" = interaction.client
+
+#         res: int = await get_character_owner(bot.supabase, interaction.channel.is_private)
+
+#         if res == interaction.user.id:
+#             return True
+
+#         raise app_commands.CheckFailure(
+#             "Not allowed in this channel, make sure your in a chatbot channel!"
+#         )
+
+#     return app_commands.check(predicate)

@@ -56,6 +56,7 @@ class Talky(commands.Bot):
 
         await self.add_cog(CacheCog(bot=self))
 
+        # loads all persistent custom characters views after restart
         char_ids = await get_characters_ids(self.supabase)
 
         for char in char_ids:

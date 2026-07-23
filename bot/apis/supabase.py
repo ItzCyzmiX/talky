@@ -189,6 +189,23 @@ async def get_character(supabase: AsyncClient, _id: str) -> Character | None:
         return None
 
 
+async def get_character_owner(supabase: AsyncClient, _id: str) -> int | None:
+    try:
+        res = (
+            await supabase.from_("characters")
+            .select("creator_id")
+            .eq("id", _id)
+            .execute()
+        )
+        json = res.model_dump()
+
+        return int(json["data"][0]["creator_id"])
+
+    except Exception as e:
+        print("Error retreiving character: ", str(e))
+        return None
+
+
 async def get_characters_ids(
     supabase: AsyncClient,
 ) -> list[dict[Literal["id"], str]]:

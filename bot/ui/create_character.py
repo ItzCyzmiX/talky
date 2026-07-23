@@ -116,7 +116,7 @@ class CharacterChatButton(discord.ui.Button):
         super().__init__(
             label="Chat",
             style=discord.ButtonStyle.blurple,
-            custom_id=f"char_id:{character_id}",
+            custom_id=f"char_id:{character_id}",  # used for persistence
         )
 
     async def callback(self, interaction: discord.Interaction):
@@ -151,7 +151,7 @@ class CharacterChatButton(discord.ui.Button):
                         "role": "assistant",
                         "content": character["start_message"],
                         "discord_message_id": starting_message.id,
-                    },
+                    },  # append the starting message
                 ],
             },
             char_id,

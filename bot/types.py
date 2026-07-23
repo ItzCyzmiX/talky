@@ -3,7 +3,7 @@ import asyncio
 
 
 class Message(TypedDict):
-    discord_message_id: int
+    discord_message_id: int  # all system messages have a discrord_message_id of -1 for easy access in case we want to alter it mid convo
     content: str
     role: Literal["assistant", "user", "system"]
 

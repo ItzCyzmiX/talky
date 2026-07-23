@@ -26,3 +26,16 @@ class CharacterCommands(commands.Cog):
 
         except Exception as e:
             print("ERROR CREATING: ", str(e))
+
+    @app_commands.command(name="create", description="Create a character")
+    @app_commands.guilds(GUILD)
+    @is_in_creation_channel()
+    async def create(
+        self,
+        interaction: discord.Interaction,
+    ):
+        try:
+            await interaction.response.send_modal(NewCharModal(bot=self.bot))
+
+        except Exception as e:
+            print("ERROR CREATING: ", str(e))
