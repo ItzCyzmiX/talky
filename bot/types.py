@@ -1,4 +1,5 @@
 from typing import TypedDict, Literal
+import asyncio
 
 
 class Message(TypedDict):
@@ -10,6 +11,7 @@ class Message(TypedDict):
 class RunningBot(TypedDict):
     admins: list[str]
     messages: list[Message]
+    lock: asyncio.Lock
 
 
 type RunningBots = dict[str, RunningBot]

@@ -63,7 +63,6 @@ class AdminCommands(commands.Cog):
     @is_chat_admin()
     @is_in_chatbot_channel()
     async def kill(self, interaction: discord.Interaction):
-
         try:
 
             removed = await remove_bot(self.bot.supabase, interaction.channel.id)
@@ -244,7 +243,6 @@ class AdminCommands(commands.Cog):
 
         guild = interaction.guild
         all_overwrites = interaction.channel.overwrites_for(guild.default_role)
-        user_overwrites = interaction.channel.overwrites_for(interaction.user)
 
         all_overwrites.view_channel = True
         all_overwrites.send_messages = True

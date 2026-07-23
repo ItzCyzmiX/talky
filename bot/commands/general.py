@@ -136,6 +136,7 @@ class GeneralCommands(commands.Cog):
             self.bot.running_bots[str(new_channel.id)] = {
                 "admins": [str(interaction.user.id)],
                 "messages": [sys_message(bot_name)],
+                "lock": asyncio.Lock()
             }
 
             await new_channel.send(

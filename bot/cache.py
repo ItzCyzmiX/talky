@@ -6,11 +6,15 @@ from discord.ext import tasks, commands
 from bot.consts import BOTS_CATEGORY_ID
 from bot.apis.supabase import get_bots_with_ids, get_admins, get_messages
 from bot.utils import get_status
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from bot.bot import Talky
 
 
-class CronCog(commands.Cog):
+class CacheCog(commands.Cog):
     def __init__(self, bot):
-        self.bot = bot
+        self.bot: "Talky" = bot
 
         self.sync_cache.start()
 
@@ -44,7 +48,9 @@ class CronCog(commands.Cog):
             self.bot.running_bots[str(c.id)] = {
                 "admins": admins,
                 "messages": messages,
+                "lock": asyncio.Lock(),
             }
+
         await asyncio.sleep(0.3)
         print(get_status(bot=self.bot))
 

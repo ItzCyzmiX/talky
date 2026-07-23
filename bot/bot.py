@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 import discord
 from discord.ext import commands
@@ -7,13 +8,18 @@ from discord import app_commands
 from dotenv import load_dotenv
 
 from bot.apis.character_api import send_msg_to_bot
-from bot.cron import CronCog
+from bot.cache import CacheCog
 from bot.apis.supabase import (
     get_messages,
     update_messages,
     create_supabase,
 )
-from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT, DELETE_DELAY
+from bot.consts import (
+    GUILD,
+    DESCRITPTION,
+    MESSAGE_HISTOY_LIMIT,
+    DELETE_DELAY,
+)
 from bot.utils import alter_msg, sanitize_msg
 from bot.webhooks.github_webhook import start_github_webhook
 from bot.types import RunningBots
@@ -46,7 +52,7 @@ class Talky(commands.Bot):
 
         await self.tree.sync(guild=GUILD)
 
-        await self.add_cog(CronCog(bot=self))
+        await self.add_cog(CacheCog(bot=self))
 
     async def on_tree_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
@@ -58,7 +64,6 @@ class Talky(commands.Bot):
             return
 
         # Fallback for all other unhandled slash command errors
-        print(f"Error in slash command: {error}")  # Or use your logger
         if not interaction.response.is_done():
             await interaction.response.send_message(
                 "An unexpected error occurred.",
@@ -106,164 +111,174 @@ class Talky(commands.Bot):
         if message.author == self.user:
             return
 
-        if str(message.channel.id) in self.running_bots.keys():
+        if str(message.channel.id) not in self.running_bots.keys():
+            return
 
-            async with message.channel.typing():
+        # i hate this function, but im too lazy and dumb to rewrite it
+        try:
+            async with self.running_bots[str(message.channel.id)]["lock"]:
+                async with message.channel.typing():
 
-                all_overwrites = message.channel.overwrites_for(
-                    message.guild.default_role
-                )
+                    all_overwrites = message.channel.overwrites_for(
+                        message.guild.default_role
+                    )
 
-                all_overwrites.send_messages = False
+                    all_overwrites.send_messages = False
 
-                await message.channel.set_permissions(
-                    message.guild.default_role, overwrite=all_overwrites
-                )
+                    await message.channel.set_permissions(
+                        message.guild.default_role, overwrite=all_overwrites
+                    )
 
-                model = "llama"
+                    model = "llama"
 
-                msg = sanitize_msg(message.content)
+                    msg = sanitize_msg(message.content)
 
-                content = None
+                    content = None
 
-                old_msgs = self.running_bots.get(str(message.channel.id), {}).get(
-                    "messages", None
-                )
+                    old_msgs = self.running_bots.get(str(message.channel.id), {}).get(
+                        "messages", None
+                    )
 
-                if message.attachments:
-
-                    if len(message.attachments) > 4:
-                        await message.channel.send(
-                            "Only 4 at max attachment per message!",
-                            delete_after=10,
-                        )
-                        await message.delete()
-                        return
-
-                    for a in message.attachments:
-                        if a.content_type is None:
-                            continue
-                        if (
-                            not a.content_type.startswith("image/")
-                            or a.content_type == "image/gif"
-                        ):
+                    if message.attachments:
+                        if len(message.attachments) > 4:
                             await message.channel.send(
-                                "File type invalid (make sure its an image not a GIF)!",
+                                "Only 4 at max attachment per message!",
                                 delete_after=10,
                             )
                             await message.delete()
                             return
 
-                    global_size = sum(
-                        list(map(lambda x: x.size, message.attachments))
-                    ) / (
-                        1024 * 1024
-                    )  # bytes to mb
+                        for a in message.attachments:
+                            if a.content_type is None:
+                                continue
+                            if (
+                                not a.content_type.startswith("image/")
+                                or a.content_type == "image/gif"
+                            ):
+                                await message.channel.send(
+                                    "File type invalid (make sure its an image not a GIF)!",
+                                    delete_after=10,
+                                )
+                                await message.delete()
+                                return
 
-                    if global_size >= 20:
-                        await message.channel.send(
-                            "Files too large (20mb max in total)!",
-                            delete_after=10,
-                        )
-                        await message.delete()
-                        return
+                        global_size = sum(
+                            list(map(lambda x: x.size, message.attachments))
+                        ) / (
+                            1024 * 1024
+                        )  # bytes to mb
 
-                    model = "vision"
+                        if global_size >= 20:
+                            await message.channel.send(
+                                "Files too large (20mb max in total)!",
+                                delete_after=10,
+                            )
+                            await message.delete()
+                            return
 
-                    content = [
-                        {
-                            "type": "text",
-                            "text": f"({sanitize_msg(message.author.name)}) {msg}",
-                        },
-                        *[
+                        model = "vision"
+
+                        content = [
                             {
-                                "type": "image_url",
-                                "image_url": {"url": i.url},
-                            }
-                            for i in message.attachments
-                        ],
-                    ]
-
-                if old_msgs is None:
-                    old_msgs = await get_messages(self.supabase, message.channel.id)
+                                "type": "text",
+                                "text": f"({sanitize_msg(message.author.name)}) {msg}",
+                            },
+                            *[
+                                {
+                                    "type": "image_url",
+                                    "image_url": {"url": i.url},
+                                }
+                                for i in message.attachments
+                            ],
+                        ]
 
                     if old_msgs is None:
-                        await message.channel.send(
-                            "Couldn't retreive messages data, try again",
-                            delete_after=10,
-                        )
-                        return
+                        old_msgs = await get_messages(self.supabase, message.channel.id)
 
-                if content is None:
-                    content = f"({sanitize_msg(message.author.name)}) {msg}"
+                        if old_msgs is None:
+                            await message.channel.send(
+                                "Couldn't retreive messages data, try again",
+                                delete_after=10,
+                            )
+                            return
 
-                new_msgs = old_msgs.copy()
+                    if content is None:
+                        content = f"({sanitize_msg(message.author.name)}) {msg}"
 
-                new_msgs.append(
-                    {
-                        "role": "user",
-                        "content": content,
-                        "discord_message_id": message.id,
-                    },
-                )
+                    new_msgs = old_msgs.copy()
 
-                new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
-
-                response = await send_msg_to_bot(new_msgs, model)
-
-                if response is None:
-                    if model == "vision":
-                        await message.channel.send(
-                            "Uploaded image failed, try again",
-                            delete_after=10,
-                        )
-                        return
-
-                    await message.channel.send(
-                        f"{model} failed to generate a response, try again...",
-                        delete_after=10,
+                    new_msgs.append(
+                        {
+                            "role": "user",
+                            "content": content,
+                            "discord_message_id": message.id,
+                        },
                     )
-                    return
 
-                response_message = await message.channel.send(
-                    f"{message.channel.name}: {sanitize_msg(response)}"
+                    new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
+
+                    response = await send_msg_to_bot(new_msgs, model)
+
+                    if response is None:
+                        if model == "vision":
+                            await message.channel.send(
+                                "Uploaded image failed, try again",
+                                delete_after=10,
+                            )
+                            return
+
+                        await message.channel.send(
+                            f"{model} failed to generate a response, try again...",
+                            delete_after=10,
+                        )
+                        return
+
+                    response_message = await message.channel.send(
+                        f"{message.channel.name}: {sanitize_msg(response)}"
+                    )
+
+                new_msgs = new_msgs[:-1]
+
+                new_msgs.extend(
+                    [
+                        {
+                            "role": "user",
+                            "content": msg,
+                            "discord_message_id": message.id,
+                        },
+                        {
+                            "role": "assistant",
+                            "content": sanitize_msg(response),
+                            "discord_message_id": response_message.id,
+                        },
+                    ]
                 )
 
-                all_overwrites = message.channel.overwrites_for(
-                    message.guild.default_role
+                did_update = await update_messages(
+                    self.supabase, message.channel.id, {"messages": new_msgs}
                 )
 
-                all_overwrites.send_messages = True
+                if not did_update:
+                    await response_message.delete()
+                    await message.delete()
 
-                await message.channel.set_permissions(
-                    message.guild.default_role, overwrite=all_overwrites
-                )
+                self.running_bots[str(message.channel.id)]["messages"] = new_msgs
+        except:
 
-            new_msgs = new_msgs[:-1]
-
-            new_msgs.extend(
-                [
-                    {
-                        "role": "user",
-                        "content": msg,
-                        "discord_message_id": message.id,
-                    },
-                    {
-                        "role": "assistant",
-                        "content": sanitize_msg(response),
-                        "discord_message_id": response_message.id,
-                    },
-                ]
+            await message.channel.send(
+                "Error while generating response, try again!", delete_after=10
             )
 
-            did_update = await update_messages(
-                self.supabase, message.channel.id, {"messages": new_msgs}
+        finally:
+            all_overwrites = message.channel.overwrites_for(message.guild.default_role)
+
+            all_overwrites.send_messages = True
+
+            await message.channel.set_permissions(
+                message.guild.default_role, overwrite=all_overwrites
             )
 
-            if not did_update:
-                await response_message.delete()
-
-            self.running_bots[str(message.channel.id)]["messages"] = new_msgs
+            await self.process_commands(message)
 
 
 async def run_bot():
