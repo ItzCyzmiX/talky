@@ -15,7 +15,7 @@ from bot.apis.supabase import (
 )
 from bot.consts import GUILD, DESCRITPTION, MESSAGE_HISTOY_LIMIT, DELETE_DELAY
 from bot.utils import alter_msg, sanitize_msg
-from bot.github_webhook import start_github_webhook
+from bot.webhooks.github_webhook import start_github_webhook
 from bot.types import RunningBots
 
 load_dotenv()
