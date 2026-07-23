@@ -4,11 +4,11 @@ from discord.ext import commands
 
 from bot.consts import GUILD, DELETE_DELAY
 from bot.bot import Talky
-from bot.supabase import (
+from bot.apis.supabase import (
     remove_bot,
     add_admin,
 )
-from bot.utils import is_chat_admin, is_in_chatbot_channel
+from bot.commands.checks import is_chat_admin, is_in_chatbot_channel
 
 
 class AdminCommands(commands.Cog):
@@ -234,4 +234,25 @@ class AdminCommands(commands.Cog):
 
         await interaction.response.send_message(
             "This chat is now private!", ephemeral=True, delete_after=10
+        )
+
+    @app_commands.command(name="public", description="Make this chat public")
+    @app_commands.guilds(GUILD)
+    @is_chat_admin()
+    @is_in_chatbot_channel()
+    async def public(self, interaction: discord.Interaction):
+
+        guild = interaction.guild
+        all_overwrites = interaction.channel.overwrites_for(guild.default_role)
+        user_overwrites = interaction.channel.overwrites_for(interaction.user)
+
+        all_overwrites.view_channel = True
+        all_overwrites.send_messages = True
+
+        await interaction.channel.set_permissions(
+            target=guild.default_role, overwrite=all_overwrites
+        )
+
+        await interaction.response.send_message(
+            "This chat is now public!", ephemeral=True, delete_after=10
         )

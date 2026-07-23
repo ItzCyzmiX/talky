@@ -6,9 +6,10 @@ from discord.ext import commands
 
 from bot.consts import GUILD, BOTS_CATEGORY_ID
 from bot.bot import Talky
-from bot.supabase import update_messages, get_messages
-from bot.character_api import send_msg_to_bot
-from bot.utils import alter_msg, is_in_chatbot_channel
+from bot.apis.supabase import update_messages, get_messages
+from bot.apis.character_api import send_msg_to_bot
+from bot.utils import alter_msg
+from bot.commands.checks import is_in_chatbot_channel
 
 
 class ContextCommands(commands.Cog):

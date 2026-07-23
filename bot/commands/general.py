@@ -6,17 +6,19 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.consts import BOT_CREATION_CHANNEL, GUILD, DELETE_DELAY
 from bot.bot import Talky
 from bot.utils import (
     sys_message,
     sanitize_msg,
     fetch_gif,
+)
+from bot.commands.checks import (
     is_in_chatbot_channel,
+    is_in_creation_channel,
     _validate_admin,
 )
-from bot.consts import BOT_CREATION_CHANNEL, BOTS_CATEGORY_ID
-from bot.supabase import new_bot
+from bot.apis.supabase import new_bot
+from bot.consts import BOT_CREATION_CHANNEL, BOTS_CATEGORY_ID, GUILD, DELETE_DELAY
 
 
 class GeneralCommands(commands.Cog):
@@ -25,13 +27,8 @@ class GeneralCommands(commands.Cog):
 
     @app_commands.command(name="help", description="Get commands")
     @app_commands.guilds(GUILD)
+    @is_in_creation_channel()
     async def help(self, interaction: discord.Interaction):
-
-        if interaction.channel.id != BOT_CREATION_CHANNEL:
-            await interaction.response.send_message(
-                "must be used in a conversation channel!"
-            )
-            return
 
         await interaction.response.send_message(
             (
@@ -74,6 +71,7 @@ class GeneralCommands(commands.Cog):
         private="If the chat will be private",
     )
     @app_commands.guilds(GUILD)
+    @is_in_creation_channel()
     async def talk(
         self,
         interaction: discord.Interaction,
@@ -83,7 +81,7 @@ class GeneralCommands(commands.Cog):
 
         if interaction.channel_id != BOT_CREATION_CHANNEL:
             await interaction.response.send_message(
-                f"Must be used in the {self.bot.get_channel(BOT_CREATION_CHANNEL).mention0} !",
+                f"Must be used in the {self.bot.get_channel(BOT_CREATION_CHANNEL).mention} !",
                 ephemeral=True,
                 delete_after=DELETE_DELAY,
             )

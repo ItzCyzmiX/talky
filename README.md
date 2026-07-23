@@ -32,8 +32,8 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 - **Vision Mode**: Automatic when images are detected (Qwen 3.6 27B)
 
 
-### ✏️ **Edit & Delete Messages**
-- Right-click on **any bot message** → "Delete AI message" or "Edit AI message"
+### ✏️ **Edit, Delete & Regenerate Messages**
+- Right-click on **any bot message** → "Delete AI message" or "Edit AI message" or "Regeenerate AI message"
 - **Edit user messages** and AI will automatically regenerate responses with the updated context
 - Changes are instantly reflected in the **conversation history and database**
 - Works for both user and AI messages
@@ -43,7 +43,6 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 - Promote other users to admin with `/admin <user>`
 - Only admins can:
   - Add/kick users from private chats
-  - Change the AI model with `/gpt`
   - Delete the channel with `/kill`
   - Private the channel with `/private`
 
@@ -105,6 +104,7 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 | `/add` | `<user>` | Add user to private chat | Admin only |
 | `/private` | — | Turns public chat to private | Admin only |
 | `/kick` | `<user>` | Remove user from private chat | Admin only |
+| `/public` | — | Turns private chat to public | Admin only |
 | `/kill` | — | Delete the chatbot channel permanently | Admin only |
 
 ### Context Menu Commands (Right-Click)
@@ -113,6 +113,7 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 |---------|--------|-------------|------------|
 | **Delete AI message** | Bot response | Delete the AI's message from history and Discord | Anyone |
 | **Edit AI message** | Bot response | Edit the AI's response via modal popup | Anyone |
+| **Regenerate AI message** | Bot response | Regenerate the AI's response | Anyone |
 
 ---
 

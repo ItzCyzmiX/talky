@@ -4,12 +4,10 @@ import re
 
 from typing import Literal, TYPE_CHECKING
 
-from bot.supabase import update_messages, is_admin
+from bot.apis.supabase import update_messages
 from collections.abc import Callable
 from bot.types import Message
 from bot.consts import GUILD, MESSAGE_HISTOY_LIMIT
-
-from discord import app_commands, Interaction
 
 if TYPE_CHECKING:
     from bot.bot import Talky
@@ -108,46 +106,6 @@ async def alter_msg(
         pass
     finally:
         return ok
-
-
-def is_in_chatbot_channel():
-    async def predicate(interaction: Interaction) -> bool:
-        bot: "Talky" = interaction.client
-        if str(interaction.channel_id) in bot.running_bots.keys():
-            return True
-
-        raise app_commands.CheckFailure(
-            "Not allowed in this channel, make sure your in a chatbot channel!"
-        )
-
-    return app_commands.check(predicate)
-
-
-async def _validate_admin(bot: "Talky", channel_id: int, user_id: int) -> bool:
-    admins = bot.running_bots.get(str(channel_id), {}).get("admins", None)
-
-    am_admin = False
-
-    if admins is None:
-        am_admin = await is_admin(bot.supabase, channel_id, user_id)
-    else:
-        am_admin = str(user_id) in admins
-
-    return am_admin
-
-
-def is_chat_admin():
-    async def predicate(interaction: Interaction) -> bool:
-        bot: "Talky" = interaction.client
-
-        am_admin = await _validate_admin(
-            bot=bot, channel_id=interaction.channel_id, user_id=interaction.user.id
-        )
-
-        if not am_admin:
-            raise app_commands.CheckFailure("You must be an admin to use this command!")
-
-    return app_commands.check(predicate)
 
 
 def get_status(bot: "Talky"):

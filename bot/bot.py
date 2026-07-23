@@ -6,9 +6,9 @@ from discord import app_commands
 
 from dotenv import load_dotenv
 
-from bot.character_api import send_msg_to_bot
+from bot.apis.character_api import send_msg_to_bot
 from bot.cron import CronCog
-from bot.supabase import (
+from bot.apis.supabase import (
     get_messages,
     update_messages,
     create_supabase,
