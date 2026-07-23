@@ -193,19 +193,28 @@ class AIEdit(
             label="new message",
             default="".join(self.message.content.split(":")[1:]),  # trim the bot name
             style=discord.TextStyle.paragraph,
+            required=True,
         )
 
         self.add_item(self.new_message_input)
 
     async def on_submit(self, interaction: discord.Interaction):
 
-        if (
-            not self.new_message_input.value
-            or self.new_message_input.value == self.message.content
-        ):
+        if self.new_message_input.value == self.message.content:
             return
 
-        new_messages = self.bot.running_bots[self.message.channel.id]["messages"].copy()
+        old_messages = self.bot.running_bots.get(str(self.message.channel.id), {}).get(
+            "messages", None
+        )
+
+        if old_messages is None:
+            await interaction.response.send_message(
+                "Cant Edit ai message!", ephemeral=True, delete_after=10
+            )
+            return
+
+        new_messages = old_messages.copy()
+
         new_messages[self.index] = {
             "role": "assistant",
             "content": f"{self.bot_name}: {self.new_message_input.value}",  # add the bot name back
@@ -219,7 +228,9 @@ class AIEdit(
         )
 
         if ok:
-            self.bot.running_bots[self.message.channel.id]["messages"] = new_messages
+            self.bot.running_bots[str(self.message.channel.id)][
+                "messages"
+            ] = new_messages
             await self.message.edit(content=self.new_message_input.value)
             await interaction.response.send_message(
                 "Edited ai message!", ephemeral=True, delete_after=5

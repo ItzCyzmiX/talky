@@ -6,7 +6,6 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.bot import Talky
 from bot.utils import (
     sys_message,
     sanitize_msg,
@@ -18,7 +17,12 @@ from bot.commands.checks import (
     _validate_admin,
 )
 from bot.apis.supabase import new_bot
-from bot.consts import BOT_CREATION_CHANNEL, BOTS_CATEGORY_ID, GUILD, DELETE_DELAY
+from bot.consts import (
+    BOTS_CATEGORY_ID,
+    GUILD,
+    DELETE_DELAY,
+)
+from bot.bot import Talky
 
 
 class GeneralCommands(commands.Cog):
@@ -79,14 +83,6 @@ class GeneralCommands(commands.Cog):
         private: Optional[bool],
     ):
 
-        if interaction.channel_id != BOT_CREATION_CHANNEL:
-            await interaction.response.send_message(
-                f"Must be used in the {self.bot.get_channel(BOT_CREATION_CHANNEL).mention} !",
-                ephemeral=True,
-                delete_after=DELETE_DELAY,
-            )
-            return
-
         try:
 
             bot_category = self.bot.get_channel(BOTS_CATEGORY_ID)
@@ -136,7 +132,7 @@ class GeneralCommands(commands.Cog):
             self.bot.running_bots[str(new_channel.id)] = {
                 "admins": [str(interaction.user.id)],
                 "messages": [sys_message(bot_name)],
-                "lock": asyncio.Lock()
+                "lock": asyncio.Lock(),
             }
 
             await new_channel.send(

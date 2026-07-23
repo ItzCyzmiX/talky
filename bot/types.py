@@ -21,3 +21,14 @@ class DBBot(TypedDict):
     id: int
     admins: list[str]
     messages: list[Message]
+
+
+class Character(TypedDict):
+    _id: str
+    creator_id: int
+    message_id: str
+    name: str
+    bio: str
+    personality: str
+    relationship: str
+    start_message: str

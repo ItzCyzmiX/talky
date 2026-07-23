@@ -13,6 +13,7 @@ from bot.apis.supabase import (
     get_messages,
     update_messages,
     create_supabase,
+    get_characters_ids,
 )
 from bot.consts import (
     GUILD,
@@ -23,6 +24,7 @@ from bot.consts import (
 from bot.utils import alter_msg, sanitize_msg
 from bot.webhooks.github_webhook import start_github_webhook
 from bot.types import RunningBots
+from bot.ui.create_character import ChatToCharacterView
 
 load_dotenv()
 
@@ -53,6 +55,11 @@ class Talky(commands.Bot):
         await self.tree.sync(guild=GUILD)
 
         await self.add_cog(CacheCog(bot=self))
+
+        char_ids = await get_characters_ids(self.supabase)
+
+        for char in char_ids:
+            self.add_view(ChatToCharacterView(char["id"]))
 
     async def on_tree_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError

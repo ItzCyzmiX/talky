@@ -1,8 +1,9 @@
 import os
+from typing import Literal
 
 from supabase import acreate_client, AsyncClient
 
-from bot.types import DBBot, Message
+from bot.types import DBBot, Message, Character
 
 
 async def create_supabase():
@@ -40,7 +41,12 @@ async def get_messages(supabase: AsyncClient, _id: int) -> list[Message] | None:
 
 
 async def new_bot(
-    supabase: AsyncClient, _id: int, bot_name: str, admins: list[int], messages: dict
+    supabase: AsyncClient,
+    _id: int,
+    bot_name: str,
+    admins: list[int],
+    messages: dict[Literal["messages"], list[Message]],
+    custom_char_id: str | None = None,
 ) -> bool:
     try:
         _ = (
@@ -51,6 +57,7 @@ async def new_bot(
                     "admins": admins,
                     "bot_name": bot_name,
                     "messages": messages,
+                    "custom_character_id": custom_char_id,
                 }
             )
             .execute()
@@ -116,9 +123,10 @@ async def add_admin(supabase: AsyncClient, _id: int, user_id: int) -> bool:
 
 
 async def get_bots_with_ids(supabase: AsyncClient, ids: list[int]) -> list[int]:
-    res = await supabase.from_("chats").select("id").in_("id", ids).execute()
-    json = res.model_dump()
     try:
+        res = await supabase.from_("chats").select("id").in_("id", ids).execute()
+        json = res.model_dump()
+
         return list(map(lambda x: x["id"], json["data"]))
     except Exception as e:
         print("Error getting bots by ids: ", str(e))
@@ -132,4 +140,63 @@ async def get_bot(supabase: AsyncClient, _id: int) -> DBBot | None:
         return res.model_dump()["data"][0]
     except (KeyError, IndexError) as e:
         print(f"No such bot: {str(e)}")
+        return None
+
+
+async def new_character(
+    supabase: AsyncClient,
+    _id: str,
+    message_id: int,
+    creator_id: int,
+    name: str,
+    bio: str,
+    personality: str,
+    relationship: str,
+    start_message: str,
+) -> bool:
+    try:
+        _ = (
+            await supabase.from_("characters")
+            .upsert(
+                {
+                    "id": _id,
+                    "message_id": message_id,
+                    "creator_id": creator_id,
+                    "name": name,
+                    "bio": bio,
+                    "personality": personality,
+                    "relationship": relationship,
+                    "start_message": start_message,
+                }
+            )
+            .execute()
+        )
+        return True
+    except Exception as e:
+        print("Error creating character: ", str(e))
+        return False
+
+
+async def get_character(supabase: AsyncClient, _id: str) -> Character | None:
+    try:
+        res = await supabase.from_("characters").select("*").eq("id", _id).execute()
+        json = res.model_dump()
+
+        return json["data"][0]
+
+    except Exception as e:
+        print("Error retreiving character: ", str(e))
+        return None
+
+
+async def get_characters_ids(
+    supabase: AsyncClient,
+) -> list[dict[Literal["id"], str]]:
+    try:
+        res = await supabase.from_("characters").select("id").execute()
+        json = res.model_dump()
+
+        return json["data"]
+    except Exception as e:
+        print("Error retreiving characters message ids: ", str(e))
         return None

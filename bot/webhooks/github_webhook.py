@@ -29,10 +29,17 @@ def github_releases_webhook_handler(bot: "Talky"):
 
         bot.version = payload["release"]["tag_name"]
 
+        is_pre = payload["release"]["prerelease"]
+
         updates_channel = bot.get_channel(UPDATES_CHANNEL_ID)
         bot_creation_channel = bot.get_channel(BOT_CREATION_CHANNEL)
+
         await updates_channel.send(
-            markdown + f"\n\nTry Talky now in {bot_creation_channel.mention}!"
+            markdown
+            + f"\n\nTry Talky now in {bot_creation_channel.mention}!"
+            + "\n # NOTE: \n THIS IS A PRERELEASE EXPECT BUGS!"
+            if is_pre
+            else ""
         )
 
         return web.Response(status=200)

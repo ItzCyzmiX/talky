@@ -4,7 +4,11 @@ import asyncio
 from discord.ext import tasks, commands
 
 from bot.consts import BOTS_CATEGORY_ID
-from bot.apis.supabase import get_bots_with_ids, get_admins, get_messages
+from bot.apis.supabase import (
+    get_bots_with_ids,
+    get_admins,
+    get_messages,
+)
 from bot.utils import get_status
 from typing import TYPE_CHECKING
 
@@ -52,6 +56,7 @@ class CacheCog(commands.Cog):
             }
 
         await asyncio.sleep(0.3)
+
         print(get_status(bot=self.bot))
 
     def cog_unload(self):
