@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import date, datetime
 from typing import TYPE_CHECKING
 
 from discord.ext import commands, tasks
@@ -13,8 +13,8 @@ if TYPE_CHECKING:
 
 
 class CacheCog(commands.Cog):
-    def __init__(self, bot):
-        self.bot: "Talky" = bot
+    def __init__(self, bot: "Talky"):
+        self.bot = bot
 
         self.sync_cache.start()
 
@@ -26,7 +26,7 @@ class CacheCog(commands.Cog):
 
         bot_category = self.bot.get_channel(BOTS_CATEGORY_ID)
 
-        if bot_category is None:
+        if not bot_category:
             return
 
         channels = bot_category.text_channels
@@ -39,7 +39,7 @@ class CacheCog(commands.Cog):
             print("error loading chats")
             return
 
-        db_bots_ids = list(map(lambda chat: chat["id"], chats))
+        db_bots_ids = [chat["id"] for chat in chats]
 
         await asyncio.sleep(0.5)
 
@@ -48,7 +48,7 @@ class CacheCog(commands.Cog):
                 await c.delete()
                 continue
 
-            chat = list(filter(lambda _: int(_["id"]) == c.id, chats))[0]
+            chat = next(chat for chat in chats if int(chat["id"]) == c.id)
 
             self.bot.running_bots[str(c.id)] = {
                 "admins": chat["admins"],
@@ -61,5 +61,5 @@ class CacheCog(commands.Cog):
 
         print(get_status(bot=self.bot))
 
-    def cog_unload(self):
+    async def cog_unload(self):
         self.sync_cache.cancel()
