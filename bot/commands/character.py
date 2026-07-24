@@ -20,12 +20,11 @@ class CharacterCommands(commands.Cog):
     @app_commands.command(name="create", description="Create a character")
     @app_commands.guilds(GUILD)
     @is_in_creation_channel()
-    async def create(
-        self,
-        interaction: discord.Interaction,
-    ):
+    async def create(self, interaction: discord.Interaction, forkable: bool = True):
         try:
-            await interaction.response.send_modal(NewCharModal(bot=self.bot))
+            await interaction.response.send_modal(
+                NewCharModal(bot=self.bot, forkable=forkable)
+            )
 
         except Exception as e:
             print("ERROR CREATING: ", str(e))

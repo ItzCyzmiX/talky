@@ -17,9 +17,12 @@ if TYPE_CHECKING:
 
 # defaults are used when modifying an already exisisting character
 class NewCharModal(discord.ui.Modal):
-    def __init__(self, bot: "Talky", defaults: Character | dict = {}):
+    def __init__(
+        self, bot: "Talky", forkable: bool = True, defaults: Character | dict = {}
+    ):
         super().__init__(title="Create Ai Character")
         self.bot = bot
+        self.forkable = forkable
 
         self.is_edit = defaults.get("message_id", None) is not None
         self.og_message_id = defaults.get("message_id", None)
@@ -93,7 +96,9 @@ class NewCharModal(discord.ui.Modal):
             icon_url=interaction.user.display_avatar.url,
         )
 
-        view = ChatToCharacterView(character_id=character_id, bot=self.bot)
+        view = ChatToCharacterView(
+            character_id=character_id, bot=self.bot, forkable=self.forkable
+        )
 
         channel = interaction.client.get_channel(CUSTOM_CHARACTERS_CHANNEL_ID)
 
@@ -152,11 +157,13 @@ class NewCharModal(discord.ui.Modal):
 
 
 class ChatToCharacterView(discord.ui.View):
-    def __init__(self, character_id: str, bot: "Talky"):
+    def __init__(self, character_id: str, bot: "Talky", forkable: bool = True):
         super().__init__(timeout=None)
 
         self.add_item(CharacterChatButton(character_id=character_id))
-        self.add_item(CharacterForkButton(character_id=character_id, bot=bot))
+
+        if forkable:
+            self.add_item(CharacterForkButton(character_id=character_id, bot=bot))
 
 
 class CharacterForkButton(discord.ui.Button):
