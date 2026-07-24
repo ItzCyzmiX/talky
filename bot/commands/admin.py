@@ -2,13 +2,13 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.consts import GUILD, DELETE_DELAY
-from bot.bot import Talky
 from bot.apis.supabase import (
-    remove_bot,
     add_admin,
+    remove_bot,
 )
+from bot.bot import Talky
 from bot.commands.checks import is_chat_admin, is_in_chatbot_channel
+from bot.consts import DELETE_DELAY, GUILD
 
 
 class AdminCommands(commands.Cog):
@@ -23,7 +23,6 @@ class AdminCommands(commands.Cog):
     async def admin(self, interaction: discord.Interaction, target: discord.Member):
 
         try:
-
             if target.id == interaction.user.id:
                 await interaction.response.send_message(
                     "You are already admin!",
@@ -64,7 +63,6 @@ class AdminCommands(commands.Cog):
     @is_in_chatbot_channel()
     async def kill(self, interaction: discord.Interaction):
         try:
-
             removed = await remove_bot(self.bot.supabase, interaction.channel.id)
             if not removed:
                 await interaction.response.send_message(
@@ -99,7 +97,6 @@ class AdminCommands(commands.Cog):
             )
             return
         try:
-
             guild = interaction.guild
             all_overwrites = interaction.channel.overwrites_for(guild.default_role)
             selected_user_overwrites = interaction.channel.overwrites_for(user)
@@ -158,7 +155,6 @@ class AdminCommands(commands.Cog):
             return
 
         try:
-
             guild = interaction.guild
             all_overwrites = interaction.channel.overwrites_for(guild.default_role)
             selected_user_overwrites = interaction.channel.overwrites_for(user)

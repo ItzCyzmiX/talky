@@ -1,37 +1,48 @@
-import discord
-import datetime
-import string
-import secrets
 import asyncio
-
-from bot.consts import DELETE_DELAY, CUSTOM_CHARACTERS_CHANNEL_ID, BOTS_CATEGORY_ID
-from bot.utils import sanitize_msg, character_sys_message
-from bot.apis.supabase import new_character, get_character, new_bot
+import datetime
+import secrets
+import string
 from typing import TYPE_CHECKING
+
+import discord
+
+from bot.apis.supabase import get_character, new_bot, new_character
+from bot.consts import BOTS_CATEGORY_ID, CUSTOM_CHARACTERS_CHANNEL_ID, DELETE_DELAY
+from bot.types import Character
+from bot.utils import character_sys_message, sanitize
 
 if TYPE_CHECKING:
     from bot.bot import Talky
 
 
+# defaults are used when modifying an already exisisting character
 class NewCharModal(discord.ui.Modal):
-    def __init__(self, bot: "Talky"):
+    def __init__(self, bot: "Talky", defaults: Character | dict = {}):
         super().__init__(title="Create Ai Character")
-
         self.bot = bot
 
+        self.is_edit = defaults.get("message_id", None) is not None
+        self.og_message_id = defaults.get("message_id", None)
+        self.og_character_id = defaults.get("id", None)
+
         self.name_input = discord.ui.TextInput(
-            label="Bot Name", style=discord.TextStyle.short, required=True
+            label="Bot Name",
+            default=defaults.get("name", None),
+            style=discord.TextStyle.short,
+            required=True,
         )
 
         self.bio_input = discord.ui.TextInput(
             label="Bot Bio",
             placeholder="a ceo at a tech company",
+            default=defaults.get("bio", None),
             style=discord.TextStyle.long,
             required=True,
         )
 
         self.personality_input = discord.ui.TextInput(
             label="Bot Personality",
+            default=defaults.get("personality", None),
             placeholder="strict yet sweet, loves to chat...",
             style=discord.TextStyle.paragraph,
             required=True,
@@ -39,6 +50,7 @@ class NewCharModal(discord.ui.Modal):
 
         self.relationship_input = discord.ui.TextInput(
             label="Bot Relationship",
+            default=defaults.get("relationship", None),
             placeholder="the users are your coworkers",
             style=discord.TextStyle.long,
             required=True,
@@ -46,6 +58,7 @@ class NewCharModal(discord.ui.Modal):
 
         self.start_message = discord.ui.TextInput(
             label="Start Message",
+            default=defaults.get("start_message", None),
             placeholder="You are late again!",
             style=discord.TextStyle.long,
             required=True,
@@ -58,7 +71,15 @@ class NewCharModal(discord.ui.Modal):
         self.add_item(self.start_message)
 
     async def on_submit(self, interaction: discord.Interaction):
-        character_id = _generate_character_id()
+
+        if self.is_edit:
+            await interaction.response.defer()
+
+        character_id = (
+            _generate_character_id()
+            if self.og_character_id is None
+            else self.og_character_id
+        )
 
         embed = discord.Embed(
             title=f"{self.name_input.value}",
@@ -72,11 +93,15 @@ class NewCharModal(discord.ui.Modal):
             icon_url=interaction.user.display_avatar.url,
         )
 
-        view = ChatToCharacterView(character_id=character_id)
+        view = ChatToCharacterView(character_id=character_id, bot=self.bot)
 
         channel = interaction.client.get_channel(CUSTOM_CHARACTERS_CHANNEL_ID)
 
-        message = await channel.send(embed=embed, view=view)
+        if self.is_edit and self.og_message_id is not None:
+            message = await channel.fetch_message(self.og_message_id)
+            await message.edit(embed=embed, view=view)
+        else:
+            message = await channel.send(embed=embed, view=view)
 
         ok = await new_character(
             supabase=self.bot.supabase,
@@ -88,27 +113,128 @@ class NewCharModal(discord.ui.Modal):
             personality=self.personality_input.value,
             relationship=self.relationship_input.value,
             start_message=self.start_message.value,
+        )  # both updates and creates new characters (UPSERT)
+
+        if not ok:
+            if self.is_edit:
+                await interaction.followup.send(
+                    "Couldn't create ai character!",
+                    ephemeral=True,
+                )
+            else:
+                await interaction.response.send_message(
+                    "Couldn't create ai character!",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+
+            await message.delete()
+            return
+
+        msg = f"Your character, {self.name_input.value}, has been been {'edited' if self.is_edit else 'created'}! \nCharacter ID: ```{character_id}```\n"
+        msg = msg + (
+            f"Share this so other people can chat with {self.name_input.value}, or from the {interaction.client.get_channel(CUSTOM_CHARACTERS_CHANNEL_ID).mention} channel!\nYou can also use it for various commands to edit and delete your character!"
+            if not self.is_edit
+            else ""
+        )
+        await interaction.user.send(content=msg)
+        if self.is_edit:
+            await interaction.followup.send(
+                content="Edited ai character!",
+                ephemeral=True,
+            )
+        else:
+            await interaction.response.send_message(
+                content="Created ai character!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+
+
+class ChatToCharacterView(discord.ui.View):
+    def __init__(self, character_id: str, bot: "Talky"):
+        super().__init__(timeout=None)
+
+        self.add_item(CharacterChatButton(character_id=character_id))
+        self.add_item(CharacterForkButton(character_id=character_id, bot=bot))
+
+
+class CharacterForkButton(discord.ui.Button):
+    def __init__(self, character_id: str, bot: "Talky"):
+        super().__init__(
+            label="Fork",
+            style=discord.ButtonStyle.secondary,
+            custom_id=f"fork_char_id:{character_id}",  # used for persistence
+        )
+
+        self.bot = bot
+
+    async def callback(self, interaction: discord.Interaction):
+        _, char_id = self.custom_id.split(":")
+
+        char_id = sanitize(char_id.strip())
+
+        character = await get_character(interaction.client.supabase, char_id)
+
+        if character is None:
+            await interaction.response.send_message(
+                "Couldnt Find Character info!",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        og_creator = interaction.client.get_user(character["creator_id"])
+
+        character_id = _generate_character_id()
+
+        embed = discord.Embed(
+            title=f"{character['name']} Forked From {og_creator.mention if og_creator else 'unknown'}",
+            description=character["bio"],
+            color=0xFF5733,  # Hex color code
+            timestamp=datetime.datetime.now(datetime.timezone.utc),  # Bottom timestamp
+        )
+
+        embed.set_author(
+            name=interaction.user.display_name,
+            icon_url=interaction.user.display_avatar.url,
+        )
+
+        view = ChatToCharacterView(character_id=character_id, bot=self.bot)
+
+        channel = interaction.client.get_channel(CUSTOM_CHARACTERS_CHANNEL_ID)
+
+        message = await channel.send(embed=embed, view=view)
+
+        ok = await new_character(
+            supabase=self.bot.supabase,
+            _id=character_id,
+            message_id=message.id,
+            creator_id=interaction.user.id,
+            name=character["name"],
+            bio=character["bio"],
+            personality=character["personality"],
+            relationship=character["relationship"],
+            start_message=character["start_message"],
         )
 
         if not ok:
             await interaction.response.send_message(
-                "Couldn't create ai character!",
+                "Couldnt Find Character info!",
                 ephemeral=True,
                 delete_after=DELETE_DELAY,
             )
-            await message.delete()
             return
 
-        await interaction.response.send_message(
-            "Created ai character!", ephemeral=True, delete_after=DELETE_DELAY
+        await interaction.user.send(
+            f"You have forked the character {character['name']}! \nCharacter ID: ```{character_id}```\nRun /edit {character_id} to make it your own!"
         )
 
-
-class ChatToCharacterView(discord.ui.View):
-    def __init__(self, character_id: str):
-        super().__init__(timeout=None)
-
-        self.add_item(CharacterChatButton(character_id=character_id))
+        await interaction.response.send_message(
+            content="Created ai character!",
+            ephemeral=True,
+            delete_after=DELETE_DELAY,
+        )
 
 
 class CharacterChatButton(discord.ui.Button):
@@ -120,9 +246,10 @@ class CharacterChatButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
+
         _, char_id = self.custom_id.split(":")
 
-        char_id = sanitize_msg(char_id.strip())
+        char_id = sanitize(char_id.strip())
 
         character = await get_character(interaction.client.supabase, char_id)
 
@@ -136,7 +263,7 @@ class CharacterChatButton(discord.ui.Button):
             await asyncio.sleep(0.3)
 
         starting_message = await new_channel.send(
-            content=f"{interaction.user.mention} {character["start_message"]}"
+            content=f"{interaction.user.mention} {character['start_message']}"
         )
 
         ok = await new_bot(
@@ -157,8 +284,6 @@ class CharacterChatButton(discord.ui.Button):
             char_id,
         )
 
-        await asyncio.sleep(0.3)
-
         if not ok:
             await interaction.response.send_message(
                 "Couldnt create the chat bot, try again",
@@ -178,10 +303,11 @@ class CharacterChatButton(discord.ui.Button):
                 },
             ],
             "lock": asyncio.Lock(),
+            "custom_character_id": character["id"],
         }
 
         await interaction.response.send_message(
-            content=f"Go chat with {character["name"]} in {new_channel.mention}",
+            content=f"Go chat with {character['name']} in {new_channel.mention}",
             ephemeral=True,
             delete_after=DELETE_DELAY,
         )

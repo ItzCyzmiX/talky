@@ -1,8 +1,9 @@
+from typing import TYPE_CHECKING
+
 from aiohttp import web
 from dotenv import load_dotenv
-from bot.consts import UPDATES_CHANNEL_ID, BOT_CREATION_CHANNEL
 
-from typing import TYPE_CHECKING
+from bot.consts import BOT_CREATION_CHANNEL, UPDATES_CHANNEL_ID
 
 load_dotenv()
 

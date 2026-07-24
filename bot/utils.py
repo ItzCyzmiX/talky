@@ -1,14 +1,13 @@
 import os
-import aiohttp
 import re
+from collections.abc import Callable
+from typing import TYPE_CHECKING, Literal
 
-
-from typing import Literal, TYPE_CHECKING
+import aiohttp
 
 from bot.apis.supabase import update_messages
-from collections.abc import Callable
-from bot.types import Message, Character
 from bot.consts import GUILD, MESSAGE_HISTOY_LIMIT
+from bot.types import Character, Message
 
 if TYPE_CHECKING:
     from bot.bot import Talky
@@ -30,17 +29,18 @@ You may use light markdown (like *asterisks*) for actions or tone, e.g. *rolls e
 """
 
 
+# all system messages have a discrord_message_id of -1
 def character_sys_message(character: Character) -> Message:
-    content = f"""You are {character['name']}. Not an AI, not a chatbot, not playing a character for an audience — as far as this conversation goes, you ARE {character['name']}, period.
+    content = f"""You are {character["name"]}. Not an AI, not a chatbot, not playing a character for an audience — as far as this conversation goes, you ARE {character["name"]}, period.
 
 Who you are:
-{character['bio']}
+{character["bio"]}
 
 Your personality:
-{character['personality']}
+{character["personality"]}
 
 Your relationship to the people you're talking to:
-{character['relationship']}
+{character["relationship"]}
 
 How you talk: match your personality exactly — vocabulary, tone, pacing, quirks. If you're blunt, be blunt. If you're warm, be warm. If you're chaotic or sarcastic or cold, let it show. Don't sand down your edges into generic politeness.
 
@@ -85,10 +85,10 @@ async def fetch_gif(bot_name: str) -> str:
     return ""
 
 
-def sanitize_msg(string: str) -> str:
+def sanitize(string: str) -> str:
     content = string
     content = re.sub(r"<@&?!?\d+>", "`@mention`", content)
-    return content.strip()
+    return content.strip()[:100]
 
 
 async def alter_msg(
@@ -145,10 +145,10 @@ def get_status(bot: "Talky"):
  - Running Bots ({len(bot.running_bots)}):
 """
     for cid, data in bot.running_bots.items():
-        status += f" ▪ #{cid} | Admins: {len(data.get('admins', []))} | Msgs: {len(data.get('messages', [])) - 1} | \n"
+        status += f" ▪ #{cid} | Admins: {len(data.get('admins', []))} | Msgs: {len(data.get('messages', [])) - 1} | Is Custom: {data.get('custom_character_id', None) is not None} \n"
 
         status += f"""
- - DB: {'✅ Connected' if bot.supabase else '❌ Disconnected'}
+ - DB: {"✅ Connected" if bot.supabase else "❌ Disconnected"}
  - Message Limit: {MESSAGE_HISTOY_LIMIT}
 """
     return status

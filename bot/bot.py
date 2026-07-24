@@ -1,30 +1,29 @@
-import os
 import asyncio
+import os
 
 import discord
-from discord.ext import commands
 from discord import app_commands
-
+from discord.ext import commands
 from dotenv import load_dotenv
 
 from bot.apis.character_api import send_msg_to_bot
-from bot.cache import CacheCog
 from bot.apis.supabase import (
-    get_messages,
-    update_messages,
     create_supabase,
     get_characters_ids,
+    get_messages,
+    update_messages,
 )
+from bot.cache import CacheCog
 from bot.consts import (
-    GUILD,
-    DESCRITPTION,
-    MESSAGE_HISTOY_LIMIT,
     DELETE_DELAY,
+    DESCRITPTION,
+    GUILD,
+    MESSAGE_HISTOY_LIMIT,
 )
-from bot.utils import alter_msg, sanitize_msg
-from bot.webhooks.github_webhook import start_github_webhook
 from bot.types import RunningBots
 from bot.ui.create_character import ChatToCharacterView
+from bot.utils import alter_msg, sanitize
+from bot.webhooks.github_webhook import start_github_webhook
 
 load_dotenv()
 
@@ -59,8 +58,9 @@ class Talky(commands.Bot):
         # loads all persistent custom characters views after restart
         char_ids = await get_characters_ids(self.supabase)
 
-        for char in char_ids:
-            self.add_view(ChatToCharacterView(char["id"]))
+        if char_ids is not None:
+            for char in char_ids:
+                self.add_view(ChatToCharacterView(character_id=char["id"], bot=self))
 
     async def on_tree_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError
@@ -126,7 +126,6 @@ class Talky(commands.Bot):
         try:
             async with self.running_bots[str(message.channel.id)]["lock"]:
                 async with message.channel.typing():
-
                     all_overwrites = message.channel.overwrites_for(
                         message.guild.default_role
                     )
@@ -139,7 +138,7 @@ class Talky(commands.Bot):
 
                     model = "llama"
 
-                    msg = sanitize_msg(message.content)
+                    msg = sanitize(message.content)
 
                     content = None
 
@@ -170,9 +169,7 @@ class Talky(commands.Bot):
                                 await message.delete()
                                 return
 
-                        global_size = sum(
-                            list(map(lambda x: x.size, message.attachments))
-                        ) / (
+                        global_size = sum([x.size for x in message.attachments]) / (
                             1024 * 1024
                         )  # bytes to mb
 
@@ -189,7 +186,7 @@ class Talky(commands.Bot):
                         content = [
                             {
                                 "type": "text",
-                                "text": f"({sanitize_msg(message.author.name)}) {msg}",
+                                "text": f"({sanitize(message.author.name)}) {msg}",
                             },
                             *[
                                 {
@@ -211,7 +208,7 @@ class Talky(commands.Bot):
                             return
 
                     if content is None:
-                        content = f"({sanitize_msg(message.author.name)}) {msg}"
+                        content = f"({sanitize(message.author.name)}) {msg}"
 
                     new_msgs = old_msgs.copy()
 
@@ -242,7 +239,7 @@ class Talky(commands.Bot):
                         return
 
                     response_message = await message.channel.send(
-                        f"{message.channel.name}: {sanitize_msg(response)}"
+                        f"{message.channel.name}: {sanitize(response)}"
                     )
 
                 new_msgs = new_msgs[:-1]
@@ -256,7 +253,7 @@ class Talky(commands.Bot):
                         },
                         {
                             "role": "assistant",
-                            "content": sanitize_msg(response),
+                            "content": sanitize(response),
                             "discord_message_id": response_message.id,
                         },
                     ]
@@ -272,7 +269,6 @@ class Talky(commands.Bot):
 
                 self.running_bots[str(message.channel.id)]["messages"] = new_msgs
         except:
-
             await message.channel.send(
                 "Error while generating response, try again!", delete_after=10
             )

@@ -1,8 +1,8 @@
 from typing import TYPE_CHECKING
 
-from discord import app_commands, Interaction
+from discord import Interaction, app_commands
 
-from bot.apis.supabase import is_admin, get_character_owner
+from bot.apis.supabase import get_character_owner, is_admin
 from bot.consts import BOT_CREATION_CHANNEL
 
 if TYPE_CHECKING:
@@ -67,18 +67,11 @@ async def _validate_admin(bot: "Talky", channel_id: int, user_id: int) -> bool:
     return am_admin
 
 
-# stinky
-# async def is_character_owner(bot: "Talky") -> bool:
-#     async def predicate(interaction: Interaction) -> bool:
-#         bot: "Talky" = interaction.client
+async def is_character_owner(bot: "Talky", character_id: int, user_id: int) -> bool:
+    try:
+        res: int = await get_character_owner(bot.supabase, character_id)
 
-#         res: int = await get_character_owner(bot.supabase, interaction.channel.is_private)
-
-#         if res == interaction.user.id:
-#             return True
-
-#         raise app_commands.CheckFailure(
-#             "Not allowed in this channel, make sure your in a chatbot channel!"
-#         )
-
-#     return app_commands.check(predicate)
+        return res == user_id
+    except Exception as e:
+        print("Error validating character ownership: ", str(e))
+        return False

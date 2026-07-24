@@ -1,28 +1,27 @@
 import asyncio
-
 from typing import Optional
 
 import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.utils import (
-    sys_message,
-    sanitize_msg,
-    fetch_gif,
-)
+from bot.apis.supabase import new_bot
+from bot.bot import Talky
 from bot.commands.checks import (
+    _validate_admin,
     is_in_chatbot_channel,
     is_in_creation_channel,
-    _validate_admin,
 )
-from bot.apis.supabase import new_bot
 from bot.consts import (
     BOTS_CATEGORY_ID,
-    GUILD,
     DELETE_DELAY,
+    GUILD,
 )
-from bot.bot import Talky
+from bot.utils import (
+    fetch_gif,
+    sanitize,
+    sys_message,
+)
 
 
 class GeneralCommands(commands.Cog):
@@ -84,7 +83,6 @@ class GeneralCommands(commands.Cog):
     ):
 
         try:
-
             bot_category = self.bot.get_channel(BOTS_CATEGORY_ID)
 
             if private:
@@ -101,7 +99,7 @@ class GeneralCommands(commands.Cog):
                 }
 
                 new_channel = await bot_category.create_text_channel(
-                    name=sanitize_msg(bot_name), overwrites=overwrites, slowmode_delay=5
+                    name=sanitize(bot_name), overwrites=overwrites, slowmode_delay=5
                 )
             else:
                 new_channel = await bot_category.create_text_channel(name=bot_name)

@@ -4,12 +4,12 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.consts import GUILD, BOTS_CATEGORY_ID
-from bot.bot import Talky
-from bot.apis.supabase import update_messages, get_messages
 from bot.apis.character_api import send_msg_to_bot
-from bot.utils import alter_msg
+from bot.apis.supabase import get_messages, update_messages
+from bot.bot import Talky
 from bot.commands.checks import is_in_chatbot_channel
+from bot.consts import BOTS_CATEGORY_ID, GUILD
+from bot.utils import alter_msg
 
 
 class ContextCommands(commands.Cog):
@@ -43,7 +43,6 @@ class ContextCommands(commands.Cog):
     async def edit(self, interaction: discord.Interaction, message: discord.Message):
 
         if message.author != self.bot.user:
-
             await interaction.response.send_message(
                 "Can only be used on bot's messages!",
                 ephemeral=True,
@@ -66,7 +65,6 @@ class ContextCommands(commands.Cog):
                 ]
                 == "assistant"
             ):
-
                 await interaction.response.send_modal(
                     AIEdit(self.bot, message, index, interaction.channel.name)
                 )
@@ -228,9 +226,9 @@ class AIEdit(
         )
 
         if ok:
-            self.bot.running_bots[str(self.message.channel.id)][
-                "messages"
-            ] = new_messages
+            self.bot.running_bots[str(self.message.channel.id)]["messages"] = (
+                new_messages
+            )
             await self.message.edit(content=self.new_message_input.value)
             await interaction.response.send_message(
                 "Edited ai message!", ephemeral=True, delete_after=5

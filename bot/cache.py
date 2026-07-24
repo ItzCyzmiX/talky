@@ -1,16 +1,12 @@
-from datetime import datetime
 import asyncio
-
-from discord.ext import tasks, commands
-
-from bot.consts import BOTS_CATEGORY_ID
-from bot.apis.supabase import (
-    get_bots_with_ids,
-    get_admins,
-    get_messages,
-)
-from bot.utils import get_status
+from datetime import datetime
 from typing import TYPE_CHECKING
+
+from discord.ext import commands, tasks
+
+from bot.apis.supabase import get_chats
+from bot.consts import BOTS_CATEGORY_ID, CUSTOM_CHARACTERS_CHANNEL_ID
+from bot.utils import get_status
 
 if TYPE_CHECKING:
     from bot.bot import Talky
@@ -34,24 +30,30 @@ class CacheCog(commands.Cog):
             return
 
         channels = bot_category.text_channels
-        channel_ids = list(map(lambda x: x.id, channels))
 
         await asyncio.sleep(0.3)
 
-        db_bot_ids = await get_bots_with_ids(self.bot.supabase, channel_ids)
+        chats = await get_chats(self.bot.supabase)
+
+        if chats is None:
+            print("error loading chats")
+            return
+
+        db_bots_ids = list(map(lambda chat: chat["id"], chats))
+
+        await asyncio.sleep(0.5)
 
         for c in channels:
-
-            if c.id not in db_bot_ids:
+            if c.id not in db_bots_ids:
                 await c.delete()
                 continue
 
-            admins = await get_admins(self.bot.supabase, c.id)
-            messages = await get_messages(self.bot.supabase, c.id)
+            chat = list(filter(lambda _: int(_["id"]) == c.id, chats))[0]
 
             self.bot.running_bots[str(c.id)] = {
-                "admins": admins,
-                "messages": messages,
+                "admins": chat["admins"],
+                "messages": chat["messages"],
+                "custom_character_id": chat.get("custom_character_id", None),
                 "lock": asyncio.Lock(),
             }
 

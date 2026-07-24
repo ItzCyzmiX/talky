@@ -1,14 +1,14 @@
 import os
 from typing import Literal
 
-from supabase import acreate_client, AsyncClient
+from supabase import AsyncClient, acreate_client
 
-from bot.types import DBBot, Message, Character
+from bot.types import Character, DBBot, Message
 
 
-async def create_supabase():
+async def create_supabase() -> AsyncClient | None:
     if os.getenv("SUPABASE_URL") is None or os.getenv("SUPABASE_SECRET_KEY") is None:
-        return
+        return None
 
     supabase: AsyncClient = await acreate_client(
         os.getenv("SUPABASE_URL"), os.getenv("SUPABASE_SECRET_KEY")
@@ -127,7 +127,7 @@ async def get_bots_with_ids(supabase: AsyncClient, ids: list[int]) -> list[int]:
         res = await supabase.from_("chats").select("id").in_("id", ids).execute()
         json = res.model_dump()
 
-        return list(map(lambda x: x["id"], json["data"]))
+        return [x["id"] for x in json["data"]]
     except Exception as e:
         print("Error getting bots by ids: ", str(e))
         return []
@@ -138,6 +138,16 @@ async def get_bot(supabase: AsyncClient, _id: int) -> DBBot | None:
     res = await supabase.from_("chats").select("id").eq("id", _id).execute()
     try:
         return res.model_dump()["data"][0]
+    except (KeyError, IndexError) as e:
+        print(f"No such bot: {str(e)}")
+        return None
+
+
+async def get_chats(supabase: AsyncClient) -> list[DBBot] | None:
+
+    res = await supabase.from_("chats").select("*").execute()
+    try:
+        return res.model_dump()["data"]
     except (KeyError, IndexError) as e:
         print(f"No such bot: {str(e)}")
         return None
@@ -181,12 +191,21 @@ async def get_character(supabase: AsyncClient, _id: str) -> Character | None:
     try:
         res = await supabase.from_("characters").select("*").eq("id", _id).execute()
         json = res.model_dump()
-
         return json["data"][0]
 
     except Exception as e:
         print("Error retreiving character: ", str(e))
         return None
+
+
+async def remove_character(supabase: AsyncClient, _id: str) -> bool:
+    try:
+        res = await supabase.from_("characters").delete().eq("id", _id).execute()
+
+        return True
+    except Exception as e:
+        print("Error retreiving character: ", str(e))
+        return False
 
 
 async def get_character_owner(supabase: AsyncClient, _id: str) -> int | None:
@@ -208,7 +227,7 @@ async def get_character_owner(supabase: AsyncClient, _id: str) -> int | None:
 
 async def get_characters_ids(
     supabase: AsyncClient,
-) -> list[dict[Literal["id"], str]]:
+) -> list[dict[Literal["id"], str]] | None:
     try:
         res = await supabase.from_("characters").select("id").execute()
         json = res.model_dump()

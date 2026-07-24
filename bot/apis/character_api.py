@@ -1,8 +1,8 @@
-from typing import Literal
 import os
-from groq import AsyncGroq
+from typing import Literal
 
 from dotenv import load_dotenv
+from groq import AsyncGroq
 
 load_dotenv()
 
@@ -15,9 +15,7 @@ async def send_msg_to_bot(
     messages: list[dict], model: Literal["llama", "vision"] = "llama"
 ) -> str | None:
 
-    filtred_msgs = list(
-        map(lambda x: {"role": x["role"], "content": x["content"]}, messages)
-    )
+    filtred_msgs = [{"role": x["role"], "content": x["content"]} for x in messages]
 
     if model == "vision":
         return await _use_groq(filtred_msgs, VISION_MODEL)
@@ -28,10 +26,8 @@ async def send_msg_to_bot(
 async def _use_groq(
     messages: list[dict], model: str = "llama-3.3-70b-versatile"
 ) -> str | None:
-    global groq_client
 
     try:
-
         params = {
             "model": model,
             "messages": messages,
@@ -50,5 +46,5 @@ async def _use_groq(
         return completion.choices[0].message.content
 
     except Exception as groq_e:
-        print(f"Groq errored out ({str(groq_e)})")
+        print("Groq errored out: ", str(groq_e))
         return None

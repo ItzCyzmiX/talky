@@ -1,5 +1,5 @@
-from typing import TypedDict, Literal
 import asyncio
+from typing import Literal, TypedDict
 
 
 class Message(TypedDict):
@@ -11,6 +11,7 @@ class Message(TypedDict):
 class RunningBot(TypedDict):
     admins: list[str]
     messages: list[Message]
+    custom_character_id: str
     lock: asyncio.Lock
 
 
@@ -21,10 +22,11 @@ class DBBot(TypedDict):
     id: int
     admins: list[str]
     messages: list[Message]
+    custom_character_id: str
 
 
 class Character(TypedDict):
-    _id: str
+    id: str
     creator_id: int
     message_id: str
     name: str
