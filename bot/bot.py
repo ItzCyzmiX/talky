@@ -23,13 +23,12 @@ from bot.consts import (
 from bot.types import RunningBots
 from bot.ui.create_character import ChatToCharacterView
 from bot.utils import alter_msg, sanitize
-from bot.webhooks.github_webhook import start_github_webhook
 
 load_dotenv()
 
 
 class Talky(commands.Bot):
-    def __init__(self, *, supabase, **kwargs):
+    def __init__(self, *, supabase):
         intents = discord.Intents.default()
         intents.message_content = True
         intents.guild_messages = True
@@ -47,8 +46,6 @@ class Talky(commands.Bot):
 
         await self.load_extension("bot.commands")
 
-        await start_github_webhook(bot=self)
-
     async def on_ready(self):
 
         await self.tree.sync(guild=GUILD)
@@ -62,7 +59,9 @@ class Talky(commands.Bot):
             for char in char_ids:
                 self.add_view(
                     ChatToCharacterView(
-                        character_id=char["id"], bot=self, forkable=char["forkable"]
+                        character_id=char["id"],
+                        bot=self,
+                        forkable=char.get("forkable", True),
                     )
                 )
 
@@ -123,12 +122,14 @@ class Talky(commands.Bot):
         if message.author == self.user:
             return
 
-        if str(message.channel.id) not in self.running_bots.keys():
+        channel_id = str(message.channel.id)
+
+        if channel_id not in self.running_bots.keys():
             return
 
         # i hate this function, but im too lazy and dumb to rewrite it
         try:
-            async with self.running_bots[str(message.channel.id)]["lock"]:
+            async with self.running_bots[channel_id]["lock"]:
                 async with message.channel.typing():
                     all_overwrites = message.channel.overwrites_for(
                         message.guild.default_role
@@ -146,7 +147,7 @@ class Talky(commands.Bot):
 
                     content = None
 
-                    old_msgs = self.running_bots.get(str(message.channel.id), {}).get(
+                    old_msgs = self.running_bots.get(channel_id, {}).get(
                         "messages", None
                     )
 
@@ -214,7 +215,12 @@ class Talky(commands.Bot):
                     if content is None:
                         content = f"({sanitize(message.author.name)}) {msg}"
 
+                    print(old_msgs)
+
                     new_msgs = old_msgs.copy()
+
+                    if not hasattr(new_msgs, "append"):
+                        new_msgs = new_msgs["messages"]
 
                     new_msgs.append(
                         {
@@ -271,8 +277,9 @@ class Talky(commands.Bot):
                     await response_message.delete()
                     await message.delete()
 
-                self.running_bots[str(message.channel.id)]["messages"] = new_msgs
-        except:
+                self.running_bots[channel_id]["messages"] = new_msgs
+        except Exception as e:
+            print(str(e))
             await message.channel.send(
                 "Error while generating response, try again!", delete_after=10
             )

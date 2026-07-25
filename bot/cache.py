@@ -48,7 +48,7 @@ class CacheCog(commands.Cog):
                 await c.delete()
                 continue
 
-            chat = next(chat for chat in chats if int(chat["id"]) == c.id)
+            chat = [chat for chat in chats if int(chat["id"]) == c.id][0]
 
             self.bot.running_bots[str(c.id)] = {
                 "admins": chat["admins"],
@@ -56,8 +56,6 @@ class CacheCog(commands.Cog):
                 "custom_character_id": chat.get("custom_character_id", None),
                 "lock": asyncio.Lock(),
             }
-
-        await asyncio.sleep(0.3)
 
         print(get_status(bot=self.bot))
 

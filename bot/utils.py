@@ -88,7 +88,7 @@ async def fetch_gif(bot_name: str) -> str:
 def sanitize(string: str) -> str:
     content = string
     content = re.sub(r"<@&?!?\d+>", "`@mention`", content)
-    return content.strip()[:100]
+    return content.strip()
 
 
 async def alter_msg(
