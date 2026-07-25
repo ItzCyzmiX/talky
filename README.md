@@ -4,20 +4,36 @@ A Discord bot that lets you create isolated, persistent AI chatbots — each one
 
 ---
 
+## TEST SERVER!
+
+a test server for talky, feel free to join and stress test it (poor talky) [JOIN](https://discord.gg/sVB2N7uJ)
+
 ## ✨ Features
 
 ### 💬 **Isolated Chatbot Channels**
+
 - Create dedicated channels for AI personas using `/talk <bot_name>`
 - Each channel has its own persistent memory and conversation history
 - AI understands context and can reference specific users by their Discord names
 
+### 🎭 **Custom Characters**
+
+- Create your own AI character with `/create`, which opens a modal to set the character's **name, personality, bio, relationship, and starting conversation message**
+- `/create` also takes optional parameters: **`forkable`** (defaults to `true`, controls whether others can fork the character) and **`profile`** (an image attachment used as the character's profile picture)
+- Edit any character you own with `/edit` — opens the same modal to update **name, personality, bio, relationship, and starting message**, plus optional **`profile`** and **`forkable`** parameters
+- If a character is forkable, a **Fork** button appears on its embed in the custom characters channel — clicking it makes your own editable copy without touching the original
+- Characters show up in a dedicated **custom characters channel**, where anyone in the server can browse characters made by other users
+- Start a chat with any listed character directly from that channel
+
 ### 🔒 **Private & Public Conversations**
+
 - Create **public** channels (anyone in the server can see & chat)
 - Create **private** channels (only invited members can access)
 - Admins can add members with `/add <user>` or remove them with `/kick <user>`
 - Perfect for private group discussions with AI
 
 ### 🖼️ **Image & GIF Embed Integration**
+
 - Upload images in your messages
 - AI analyzes images and responds based on visual content
 - Supports up to **4 images per message** (20MB total max)
@@ -25,17 +41,19 @@ A Discord bot that lets you create isolated, persistent AI chatbots — each one
 - Works seamlessly with text in the same message
 
 ### 🧠 **Flexible AI Model Selection**
+
 - **Default**: Llama 3.3 70B (via Groq) — fast, reliable, and free
 - **Vision Mode**: Automatic when images are detected (Qwen 3.6 27B)
 
-
 ### ✏️ **Edit, Delete & Regenerate Messages**
+
 - Right-click on **any bot message** → "Delete AI message" or "Edit AI message" or "Regeenerate AI message"
 - **Edit user messages** and AI will automatically regenerate responses with the updated context
 - Changes are instantly reflected in the **conversation history and database**
 - Works for both user and AI messages
 
 ### 👑 **Admin Management**
+
 - Channel creator is automatically an admin
 - Promote other users to admin with `/admin <user>`
 - Only admins can:
@@ -44,12 +62,14 @@ A Discord bot that lets you create isolated, persistent AI chatbots — each one
   - Private the channel with `/private`
 
 ### 💾 **Persistent Memory**
+
 - Last 100 messages stored per channel (configurable)
 - Full conversation history in Supabase
 - AI has context from previous messages in that channel
 - Survives bot restarts
 
 ### 🎭 **Accurate Character Roleplay**
+
 - AI stays in character — not an AI pretending, **actually becomes** the persona
 - Speaks with authentic vocabulary, tone, and attitude
 - Has opinions and personality, not generic "customer service energy"
@@ -63,12 +83,28 @@ A Discord bot that lets you create isolated, persistent AI chatbots — each one
 
 **Per-channel state, not global state.** Each chatbot channel is backed by its own row in Supabase:
 
-| Field | Type | Purpose |
-|---|---|---|
-| `id` | bigint | Discord channel ID (1:1 mapping) |
-| `admins` | text[] | User IDs with admin permissions |
-| `messages` | jsonb | Full message history with Discord message IDs |
-| `bot_name` | text | Name of the chatbot persona |
+| Field      | Type   | Purpose                                       |
+| ---------- | ------ | --------------------------------------------- |
+| `id`       | bigint | Discord channel ID (1:1 mapping)              |
+| `admins`   | text[] | User IDs with admin permissions               |
+| `messages` | jsonb  | Full message history with Discord message IDs |
+| `bot_name` | text   | Name of the chatbot persona                   |
+
+Custom characters are backed by their own row in a separate `characters` table:
+
+| Field              | Type    | Purpose                                                                                                                                         |
+| ------------------ | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------- |
+| `name`             | text    | Character's name                                                                                                                                |
+| `bio`              | text    | Character's bio                                                                                                                                 |
+| `personality`      | text    | Character's personality description                                                                                                             |
+| `relationship`     | text    | Character's relationship to the user                                                                                                            |
+| `starting_message` | text    | First message sent when a chat with the character is started                                                                                    |
+| `owner_id`         | text    | Discord user ID of the character's creator                                                                                                      |
+| `message_id`       | bigint  | Discord message ID of the character's listing in the custom characters channel, used to reference/edit/delete the listing on update or deletion |
+| `forked_from`      | text    | ID of the original character this was forked from (null if not a fork)                                                                          |
+| `forkable`         | boolean | Whether others can fork this character (defaults to `true`)                                                                                     |
+
+Profile images aren't stored as a column — they're uploaded to a public Supabase Storage bucket named **`characters`**, inside a **`profiles`** folder, keyed by character ID.
 
 ### Message Flow
 
@@ -92,25 +128,28 @@ A Discord bot that lets you create isolated, persistent AI chatbots — each one
 
 ## 🛠️ Commands
 
-| Command | Arguments | Description | Permissions |
-|---------|-----------|-------------|-------------|
-| `/talk` | `<bot_name>` `[private]` | Create a new chatbot channel | Anyone (in creation channel) |
-| `/help` | — | Show all available commands | Anyone (in creation channel) |
-| `/status` | — | Check if you're an admin in current channel | Anyone |
-| `/admin` | `<user>` | Promote a user to admin | Admin only |
-| `/add` | `<user>` | Add user to private chat | Admin only |
-| `/private` | — | Turns public chat to private | Admin only |
-| `/kick` | `<user>` | Remove user from private chat | Admin only |
-| `/public` | — | Turns private chat to public | Admin only |
-| `/kill` | — | Delete the chatbot channel permanently | Admin only |
+| Command    | Arguments                                                                                                         | Description                                                        | Permissions                  |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------- |
+| `/talk`    | `<bot_name>` `[private]`                                                                                          | Create a new chatbot channel                                       | Anyone (in creation channel) |
+| `/create`  | `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message)                  | Create a custom character, listed in the custom characters channel | Anyone (in creation channel) |
+| `/edit`    | `<character_id>` `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message) | Edit a custom character you own                                    | Character owner only         |
+| `/delte`   | `<character_id>`                                                                                                  | Delete a custom character you own                                  | Character owner only         |
+| `/help`    | —                                                                                                                 | Show all available commands                                        | Anyone (in creation channel) |
+| `/status`  | —                                                                                                                 | Check if you're an admin in current channel                        | Anyone                       |
+| `/admin`   | `<user>`                                                                                                          | Promote a user to admin                                            | Admin only                   |
+| `/add`     | `<user>`                                                                                                          | Add user to private chat                                           | Admin only                   |
+| `/private` | —                                                                                                                 | Turns public chat to private                                       | Admin only                   |
+| `/kick`    | `<user>`                                                                                                          | Remove user from private chat                                      | Admin only                   |
+| `/public`  | —                                                                                                                 | Turns private chat to public                                       | Admin only                   |
+| `/kill`    | —                                                                                                                 | Delete the chatbot channel permanently                             | Admin only                   |
 
 ### Context Menu Commands (Right-Click)
 
-| Command | Target | Description | Who Can Use |
-|---------|--------|-------------|------------|
-| **Delete AI message** | Bot response | Delete the AI's message from history and Discord | Anyone |
-| **Edit AI message** | Bot response | Edit the AI's response via modal popup | Anyone |
-| **Regenerate AI message** | Bot response | Regenerate the AI's response | Anyone |
+| Command                   | Target       | Description                                      | Who Can Use |
+| ------------------------- | ------------ | ------------------------------------------------ | ----------- |
+| **Delete AI message**     | Bot response | Delete the AI's message from history and Discord | Anyone      |
+| **Edit AI message**       | Bot response | Edit the AI's response via modal popup           | Anyone      |
+| **Regenerate AI message** | Bot response | Regenerate the AI's response                     | Anyone      |
 
 ---
 
@@ -146,14 +185,15 @@ pip install -r requirements.txt
 
 Create a table named `chats` with these columns:
 
-| Column | Type | Nullable | Notes |
-|--------|------|----------|-------|
-| `id` | bigint | ❌ | Discord channel ID (primary key) |
-| `admins` | text[] | ✅ | Array of user ID strings |
-| `bot_name` | text | ✅ | Name of the chatbot |
-| `messages` | jsonb | ✅ | Message history JSON (includes discord_message_id for each message) |
+| Column     | Type   | Nullable | Notes                                                               |
+| ---------- | ------ | -------- | ------------------------------------------------------------------- |
+| `id`       | bigint | ❌       | Discord channel ID (primary key)                                    |
+| `admins`   | text[] | ✅       | Array of user ID strings                                            |
+| `bot_name` | text   | ✅       | Name of the chatbot                                                 |
+| `messages` | jsonb  | ✅       | Message history JSON (includes discord_message_id for each message) |
 
 **Example SQL:**
+
 ```sql
 CREATE TABLE chats (
   id BIGINT PRIMARY KEY,
@@ -162,6 +202,37 @@ CREATE TABLE chats (
   messages JSONB,
 );
 ```
+
+Create a second table named `characters` for custom characters:
+
+| Column             | Type    | Nullable | Notes                                                                          |
+| ------------------ | ------- | -------- | ------------------------------------------------------------------------------ |
+| `name`             | text    | ❌       | Character's name                                                               |
+| `bio`              | text    | ✅       | Character's bio                                                                |
+| `personality`      | text    | ✅       | Character's personality description                                            |
+| `relationship`     | text    | ✅       | Character's relationship to the user                                           |
+| `starting_message` | text    | ✅       | First message sent when a chat is started with the character                   |
+| `owner_id`         | text    | ❌       | Discord user ID of the character's creator                                     |
+| `message_id`       | bigint  | ✅       | Discord message ID of the character's listing in the custom characters channel |
+| `forkable`         | boolean | ✅       | Whether others can fork this character (defaults to `true`)                    |
+
+**Example SQL:**
+
+```sql
+CREATE TABLE characters (
+  name TEXT NOT NULL,
+  bio TEXT,
+  personality TEXT,
+  relationship TEXT,
+  starting_message TEXT,
+  owner_id TEXT NOT NULL,
+  message_id BIGINT,
+  forked_from TEXT,
+  forkable BOOLEAN DEFAULT TRUE
+);
+```
+
+Also create a **public Storage bucket** named `characters` with a `profiles` folder inside it — this is where character profile images uploaded via `/create` and `/edit` are stored.
 
 ### 4. Configure Environment Variables
 
@@ -187,6 +258,7 @@ SUPABASE_SECRET_KEY=your_supabase_service_role_key
 ```
 
 **How to find Discord IDs:**
+
 1. Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode)
 2. Right-click on server/category/channel → "Copy Server/Channel ID"
 
@@ -207,6 +279,7 @@ python main.py
 ```
 
 You should see:
+
 ```
 Talky started!
 ```
@@ -214,11 +287,13 @@ Talky started!
 ### 7. Invite to Your Server
 
 Use this URL (replace `YOUR_CLIENT_ID`):
+
 ```
 https://discord.com/api/oauth2/authorize?client_id=YOUR_CLIENT_ID&permissions=16777216&scope=bot%20applications.commands
 ```
 
 Or manually:
+
 1. Go to [Developer Portal](https://discord.com/developers/applications) → Your App → OAuth2 → URL Generator
 2. Select scopes: `bot`, `applications.commands`
 3. Select permissions: `Manage Channels`, `Send Messages`, `Embed Links`
@@ -232,6 +307,7 @@ Or manually:
 - **groq 0.18.0** — Groq API client (Llama models + vision)
 - **python-dotenv 1.0.1** — Environment variable management
 - **aiohttp 3.13.3** — Async HTTP (Giphy API)
+- **aiofiles 24.1.0** — Async File Manipulation
 - **supabase 2.27.2** — Database client
 
 ---
