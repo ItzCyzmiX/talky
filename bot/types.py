@@ -35,3 +35,4 @@ class Character(TypedDict):
     relationship: str
     start_message: str
     forkable: bool
+    profile_url: str | None

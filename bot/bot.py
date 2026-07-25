@@ -9,12 +9,15 @@ from dotenv import load_dotenv
 from bot.apis.character_api import send_msg_to_bot
 from bot.apis.supabase import (
     create_supabase,
-    get_characters_ids,
+    delete_character_profile,
+    get_characters,
     get_messages,
+    remove_character,
     update_messages,
 )
 from bot.cache import CacheCog
 from bot.consts import (
+    CUSTOM_CHARACTERS_CHANNEL_ID,
     DELETE_DELAY,
     DESCRITPTION,
     GUILD,
@@ -53,10 +56,17 @@ class Talky(commands.Bot):
         await self.add_cog(CacheCog(bot=self))
 
         # loads all persistent custom characters views after restart
-        char_ids = await get_characters_ids(self.supabase)
+        chars = await get_characters(self.supabase)
 
-        if char_ids is not None:
-            for char in char_ids:
+        c = self.get_channel(CUSTOM_CHARACTERS_CHANNEL_ID)
+        if c and chars is not None:
+            for char in chars:
+                try:
+                    await c.fetch_message(int(char["message_id"]))
+                except discord.NotFound:
+                    await remove_character(self.supabase, char["id"])
+                    await delete_character_profile(self.supabase, char["id"])
+
                 self.add_view(
                     ChatToCharacterView(
                         character_id=char["id"],

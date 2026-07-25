@@ -6,7 +6,12 @@ from typing import TYPE_CHECKING
 
 import discord
 
-from bot.apis.supabase import get_character, new_bot, new_character
+from bot.apis.supabase import (
+    get_character,
+    new_bot,
+    new_character,
+    upload_character_profile,
+)
 from bot.consts import BOTS_CATEGORY_ID, CUSTOM_CHARACTERS_CHANNEL_ID, DELETE_DELAY
 from bot.types import Character
 from bot.utils import character_sys_message, sanitize
@@ -18,12 +23,16 @@ if TYPE_CHECKING:
 # defaults are used when modifying an already exisisting character
 class NewCharModal(discord.ui.Modal):
     def __init__(
-        self, bot: "Talky", forkable: bool = True, defaults: Character | dict = {}
+        self,
+        bot: "Talky",
+        profile: str | None = None,
+        forkable: bool = True,
+        defaults: Character | dict = {},
     ):
         super().__init__(title="Create Ai Character")
         self.bot = bot
         self.forkable = forkable
-
+        self.profile_url = profile
         self.is_edit = defaults.get("message_id", None) is not None
         self.og_message_id = defaults.get("message_id", None)
         self.og_character_id = defaults.get("id", None)
@@ -101,6 +110,15 @@ class NewCharModal(discord.ui.Modal):
         )
 
         channel = interaction.client.get_channel(CUSTOM_CHARACTERS_CHANNEL_ID)
+
+        public_url = None
+
+        if self.profile_url:
+            public_url = await upload_character_profile(
+                self.bot.supabase, self.profile_url, character_id
+            )
+            if public_url is not None:
+                embed.set_image(url=public_url)
 
         if self.is_edit and self.og_message_id is not None:
             message = await channel.fetch_message(self.og_message_id)
@@ -192,7 +210,7 @@ class CharacterForkButton(discord.ui.Button):
             )
             return
 
-        og_creator = interaction.client.get_user(character["creator_id"])
+        og_creator = interaction.client.get_user(int(character["creator_id"]))
 
         character_id = _generate_character_id()
 
@@ -224,7 +242,7 @@ class CharacterForkButton(discord.ui.Button):
             personality=character["personality"],
             relationship=character["relationship"],
             start_message=character["start_message"],
-            forkable=self.forkable,
+            forkable=True,
         )
 
         if not ok:

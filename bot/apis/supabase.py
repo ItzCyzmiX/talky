@@ -1,6 +1,9 @@
 import os
 from typing import Literal
 
+import aiofiles
+import aiofiles.os
+import aiohttp
 from supabase import AsyncClient, acreate_client
 
 from bot.types import Character, DBBot, Message
@@ -210,6 +213,49 @@ async def remove_character(supabase: AsyncClient, _id: str) -> bool:
         return False
 
 
+async def upload_character_profile(
+    supabase: AsyncClient, url: str, character_id: str
+) -> str | None:
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as res:
+                if res.status != 200:
+                    return None
+
+                await aiofiles.os.makedirs("temp/profiles", exist_ok=True)
+
+                content = await res.read()
+
+                res = await supabase.storage.from_("characters").upload(
+                    file=content,
+                    path=f"profiles/{character_id}.png",
+                    file_options={
+                        "content-type": "image/png",
+                        "cache-control": "3600",
+                        "x-upsert": "true",
+                    },
+                )
+
+                public_url = await supabase.storage.from_("characters").get_public_url(
+                    f"profiles/{character_id}.{ext}"
+                )
+
+                return public_url
+
+    except Exception as e:
+        print("error getting pulbic link: ", str(e))
+        return None
+
+
+async def delete_character_profile(supabase: AsyncClient, character_id: str):
+    try:
+        await supabase.storage.from_("characters").remove(
+            paths=[f"profiles/{character_id}.png"]
+        )
+    except Exception as e:
+        print("error deleting character profile: ", str(e))
+
+
 async def get_character_owner(supabase: AsyncClient, _id: str) -> int | None:
     try:
         res = (
@@ -227,11 +273,11 @@ async def get_character_owner(supabase: AsyncClient, _id: str) -> int | None:
         return None
 
 
-async def get_characters_ids(
+async def get_characters(
     supabase: AsyncClient,
 ) -> list[Character] | None:
     try:
-        res = await supabase.from_("characters").select("id").execute()
+        res = await supabase.from_("characters").select("*").execute()
         json = res.model_dump()
 
         return json["data"]

@@ -20,10 +20,30 @@ class CharacterCommands(commands.Cog):
     @app_commands.command(name="create", description="Create a character")
     @app_commands.guilds(GUILD)
     @is_in_creation_channel()
-    async def create(self, interaction: discord.Interaction, forkable: bool = True):
+    async def create(
+        self,
+        interaction: discord.Interaction,
+        profile: discord.Attachment | None = None,
+        forkable: bool = True,
+    ):
         try:
+            if profile is not None and (
+                profile.content_type is None
+                or not profile.content_type.startswith("image/")
+            ):
+                await interaction.response.send_message(
+                    content="Invalide profile image",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
             await interaction.response.send_modal(
-                NewCharModal(bot=self.bot, forkable=forkable)
+                NewCharModal(
+                    bot=self.bot,
+                    profile=(profile.url if profile else None),
+                    forkable=forkable,
+                )
             )
 
         except Exception as e:
@@ -33,8 +53,25 @@ class CharacterCommands(commands.Cog):
     @app_commands.describe(character_id="The Character's ID")
     @app_commands.guilds(GUILD)
     @is_in_creation_channel()
-    async def edit(self, interaction: discord.Interaction, character_id: str):
+    async def edit(
+        self,
+        interaction: discord.Interaction,
+        character_id: str,
+        new_profile: discord.Attachment | None = None,
+        forkable: bool | None = None,
+    ):
         try:
+            if new_profile is not None and (
+                new_profile.content_type is None
+                or not new_profile.content_type.startswith("image/")
+            ):
+                await interaction.response.send_message(
+                    content="Invalide profile image",
+                    ephemeral=True,
+                    delete_after=DELETE_DELAY,
+                )
+                return
+
             if len(character_id) > 8:
                 await interaction.response.send_message(
                     content="Invalid character ID (8 characters max)",
@@ -67,7 +104,12 @@ class CharacterCommands(commands.Cog):
                 return
 
             await interaction.response.send_modal(
-                NewCharModal(bot=self.bot, defaults=char)
+                NewCharModal(
+                    bot=self.bot,
+                    profile=(new_profile.url if new_profile else None),
+                    forkable=(char["forkable"] if forkable is None else forkable),
+                    defaults=char,
+                )
             )
 
         except Exception as e:
