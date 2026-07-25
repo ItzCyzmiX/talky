@@ -23,7 +23,7 @@ def github_releases_webhook_handler(bot: "Talky"):
 
         payload = await request.json()
 
-        if payload["action"] != "created":
+        if payload["action"] not in ["created", "released"]:
             return web.Response(status=401, text="Unsupported Event")
 
         markdown = payload["release"]["body"]

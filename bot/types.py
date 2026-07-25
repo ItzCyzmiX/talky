@@ -34,3 +34,4 @@ class Character(TypedDict):
     personality: str
     relationship: str
     start_message: str
+    forkable: bool

@@ -60,7 +60,11 @@ class Talky(commands.Bot):
 
         if char_ids is not None:
             for char in char_ids:
-                self.add_view(ChatToCharacterView(character_id=char["id"], bot=self))
+                self.add_view(
+                    ChatToCharacterView(
+                        character_id=char["id"], bot=self, forkable=char["forkable"]
+                    )
+                )
 
     async def on_tree_error(
         self, interaction: discord.Interaction, error: app_commands.AppCommandError

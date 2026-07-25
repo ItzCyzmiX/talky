@@ -163,6 +163,7 @@ async def new_character(
     personality: str,
     relationship: str,
     start_message: str,
+    forkable: bool,
 ) -> bool:
     try:
         _ = (
@@ -177,6 +178,7 @@ async def new_character(
                     "personality": personality,
                     "relationship": relationship,
                     "start_message": start_message,
+                    "forkable": forkable,
                 }
             )
             .execute()
@@ -227,7 +229,7 @@ async def get_character_owner(supabase: AsyncClient, _id: str) -> int | None:
 
 async def get_characters_ids(
     supabase: AsyncClient,
-) -> list[dict[Literal["id"], str]] | None:
+) -> list[Character] | None:
     try:
         res = await supabase.from_("characters").select("id").execute()
         json = res.model_dump()

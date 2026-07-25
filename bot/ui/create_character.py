@@ -118,6 +118,7 @@ class NewCharModal(discord.ui.Modal):
             personality=self.personality_input.value,
             relationship=self.relationship_input.value,
             start_message=self.start_message.value,
+            forkable=self.forkable,
         )  # both updates and creates new characters (UPSERT)
 
         if not ok:
@@ -223,6 +224,7 @@ class CharacterForkButton(discord.ui.Button):
             personality=character["personality"],
             relationship=character["relationship"],
             start_message=character["start_message"],
+            forkable=self.forkable,
         )
 
         if not ok:
