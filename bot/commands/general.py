@@ -43,12 +43,13 @@ class GeneralCommands(commands.Cog):
                 "- `/add <user>` — Add user to private chat *(Admin only)*\n"
                 "- `/kick <user>` — Remove user from private chat *(Admin only)*\n"
                 "- `/kill` — Delete the chatbot channel permanently *(Admin only)*\n"
-                "- `/create [forkable]` — Creates a custom character *(Anyone)*\n"
-                "- `/edit <character_id>` — Edit your custom character *(Character creator only)*\n"
+                "- `/create [profile_image] [forkable]` — Creates a custom character *(Anyone)*\n"
+                "- `/edit <character_id> [new_profile] [forkable]` — Edit your custom character *(Character creator only)*\n"
                 "- `/delete <character_id>` — Delete your custom character (and all chats made with it) *(Character creator only)*\n\n"
                 "### Context Menu Commands (Right-Click)\n"
                 "- **Delete AI message** (On Bot response) — Delete the AI's message from history *(Anyone)*\n"
-                "- **Edit AI message** (On Bot response) — Edit the AI's response via modal popup *(Anyone)*"
+                "- **Edit AI message** (On Bot response) — Edit the AI's response via modal popup *(Anyone)*\n"
+                "- **Regenerate AI message** (On Bot response) — Regenerate AI's response *(Anyone)*"
             ),
             ephemeral=True,
             delete_after=DELETE_DELAY * 3,
