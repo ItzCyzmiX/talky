@@ -215,12 +215,7 @@ class Talky(commands.Bot):
                     if content is None:
                         content = f"({sanitize(message.author.name)}) {msg}"
 
-                    print(old_msgs)
-
                     new_msgs = old_msgs.copy()
-
-                    if not hasattr(new_msgs, "append"):
-                        new_msgs = new_msgs["messages"]
 
                     new_msgs.append(
                         {

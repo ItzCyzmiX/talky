@@ -4,8 +4,8 @@ from typing import TYPE_CHECKING
 
 from discord.ext import commands, tasks
 
-from bot.apis.supabase import get_chats
-from bot.consts import BOTS_CATEGORY_ID, CUSTOM_CHARACTERS_CHANNEL_ID
+from bot.apis.supabase import get_chats, remove_bot
+from bot.consts import BOTS_CATEGORY_ID
 from bot.utils import get_status
 
 if TYPE_CHECKING:
@@ -30,6 +30,7 @@ class CacheCog(commands.Cog):
             return
 
         channels = bot_category.text_channels
+        channel_ids = [channel.id for channel in channels]
 
         await asyncio.sleep(0.3)
 
@@ -52,10 +53,14 @@ class CacheCog(commands.Cog):
 
             self.bot.running_bots[str(c.id)] = {
                 "admins": chat["admins"],
-                "messages": chat["messages"],
+                "messages": chat["messages"].get("messages", []),
                 "custom_character_id": chat.get("custom_character_id", None),
                 "lock": asyncio.Lock(),
             }
+
+        for _id in db_bots_ids:
+            if _id not in channel_ids:
+                await remove_bot(self.bot.supabase, _id)
 
         print(get_status(bot=self.bot))
 
