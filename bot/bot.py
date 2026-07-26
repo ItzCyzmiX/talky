@@ -42,7 +42,7 @@ class Talky(commands.Bot):
 
         self.supabase = supabase
         self.running_bots: RunningBots = {}
-        self.version: str = "v1"
+        self.version: str = "v1.4.1"
 
     async def setup_hook(self):
         self.tree.on_error = self.on_tree_error
