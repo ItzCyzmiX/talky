@@ -11,12 +11,15 @@ logging.basicConfig(level=logging.INFO)
 
 def restart_bot():
     while True:
-        _ = input()
-        if _.strip().lower() == "r":
-            print("Restarting...")
-            os.execv(sys.executable, ["python"] + sys.argv)
+        cmd = input()
+        match cmd.strip().lower():
+            case "r":
+                logging.info("Restarting...")
+                os.execv(sys.executable, ["python"] + sys.argv)
+            case _:
+                pass
 
 
 threading.Thread(target=restart_bot, daemon=True).start()
 
-asyncio.run(run_bot())
+runner = asyncio.run(run_bot())

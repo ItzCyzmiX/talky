@@ -10,6 +10,7 @@ from bot.apis.supabase import (
     get_character,
     new_bot,
     new_character,
+    refresh_character_chats,
     upload_character_profile,
 )
 from bot.consts import BOTS_CATEGORY_ID, CUSTOM_CHARACTERS_CHANNEL_ID, DELETE_DELAY
@@ -167,12 +168,56 @@ class NewCharModal(discord.ui.Modal):
                 content="Edited ai character!",
                 ephemeral=True,
             )
+
+            asyncio.create_task(
+                _refresh_character_channels(
+                    bot=self.bot,
+                    character_id=character_id,
+                    character={
+                        "name": self.name_input.value,
+                        "personality": self.personality_input.value,
+                        "bio": self.bio_input.value,
+                        "relationship": self.relationship_input.value,
+                    },
+                )
+            )
+
         else:
             await interaction.response.send_message(
                 content="Created ai character!",
                 ephemeral=True,
                 delete_after=DELETE_DELAY,
             )
+
+
+async def _refresh_character_channels(
+    bot: "Talky", character_id: str, character: Character
+):
+    _ok = await refresh_character_chats(
+        bot.supabase,
+        character_id,
+        character,
+    )
+    channels = []
+
+    for k in list(bot.running_bots.keys()):
+        v = bot.running_bots[k]
+        if (
+            v.get("custom_character_id", None) is not None
+            and v.get("custom_character_id", None) == character_id
+        ):
+            c = bot.get_channel(int(k))
+            if c:
+                channels.append(c)
+    for channel in channels:
+        try:
+            await channel.edit(name=character["name"])
+        except discord.RateLimited as e:
+            await asyncio.sleep(e.retry_after)
+            await channel.edit(name=character["name"])
+        except Exception as e:
+            print("Error editing chat channel: ", str(e))
+            continue
 
 
 class ChatToCharacterView(discord.ui.View):

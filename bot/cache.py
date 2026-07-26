@@ -51,16 +51,26 @@ class CacheCog(commands.Cog):
 
             chat = [chat for chat in chats if int(chat["id"]) == c.id][0]
 
+            msgs = []
+
+            if isinstance(chat["messages"], list):
+                msgs = chat["messages"]
+            elif isinstance(chat["messages"], dict):
+                msgs = chat["messages"].get("messages", [])
+
             self.bot.running_bots[str(c.id)] = {
                 "admins": chat["admins"],
-                "messages": chat["messages"].get("messages", []),
+                "messages": msgs,
                 "custom_character_id": chat.get("custom_character_id", None),
                 "lock": asyncio.Lock(),
             }
 
+        # mainly used for removing chats, from the db, with characters that have been deleted
         for _id in db_bots_ids:
             if _id not in channel_ids:
                 await remove_bot(self.bot.supabase, _id)
+
+        await asyncio.sleep(1)  # JWT clock skew issues fix
 
         print(get_status(bot=self.bot))
 

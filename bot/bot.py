@@ -54,9 +54,7 @@ class Talky(commands.Bot):
         await self.tree.sync(guild=GUILD)
 
         await self.add_cog(CacheCog(bot=self))
-        
-        await asyncio.sleep(0.3) # JWT clock skew issues fix
-        
+
         # loads all persistent custom characters views after restart
         chars = await get_characters(self.supabase)
 

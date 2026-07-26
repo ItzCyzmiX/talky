@@ -70,9 +70,11 @@ async def fetch_gif(bot_name: str) -> str:
     url = "https://api.giphy.com/v1/gifs/search"
     params = {"api_key": os.getenv("GIPHY_KEY"), "q": bot_name}
 
-    async with aiohttp.ClientSession() as session:
-        async with session.get(url, params=params) as res:
-            json = await res.json()
+    async with (
+        aiohttp.ClientSession() as session,
+        session.get(url, params=params) as res,
+    ):
+        json = await res.json()
 
     gifs = json.get("data", [])
 

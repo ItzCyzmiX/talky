@@ -4,6 +4,7 @@ from typing import Literal
 import aiofiles
 import aiofiles.os
 import aiohttp
+from postgrest.exceptions import APIError
 from supabase import AsyncClient, acreate_client
 
 from bot.types import Character, DBBot, Message
@@ -28,7 +29,7 @@ async def update_messages(supabase: AsyncClient, _id: int, new_msgs: dict) -> bo
             .execute()
         )
         return True
-    except Exception as e:
+    except APIError as e:
         print("Error updating messages by channel id: ", str(e))
         return False
 
@@ -38,7 +39,7 @@ async def get_messages(supabase: AsyncClient, _id: int) -> list[Message] | None:
 
     try:
         return res.model_dump()["data"][0]["messages"]["messages"]
-    except Exception as e:
+    except APIError as e:
         print("Error getting messages by channel id: ", str(e))
         return None
 
@@ -66,7 +67,7 @@ async def new_bot(
             .execute()
         )
         return True
-    except Exception as e:
+    except APIError as e:
         print("Error creating bot: ", str(e))
         return False
 
@@ -84,7 +85,7 @@ async def is_admin(supabase: AsyncClient, _id: int, user_id: int) -> bool:
 
     try:
         return str(user_id) in dict_["data"][0]["admins"]
-    except Exception as e:
+    except APIError as e:
         print("Error checking if user is admin: ", str(e))
         return False
 
@@ -95,7 +96,7 @@ async def get_admins(supabase: AsyncClient, _id: int) -> list[str]:
 
     try:
         return dict_["data"][0]["admins"]
-    except Exception as e:
+    except APIError as e:
         print("Error checking if user is admin: ", str(e))
         return []
 
@@ -104,7 +105,7 @@ async def remove_bot(supabase: AsyncClient, _id: int) -> bool:
     try:
         _ = await supabase.from_("chats").delete().eq("id", _id).execute()
         return True
-    except Exception as e:
+    except APIError as e:
         print("Error removing bot by id: ", str(e))
         return False
 
@@ -120,7 +121,7 @@ async def add_admin(supabase: AsyncClient, _id: int, user_id: int) -> bool:
             .execute()
         )
         return True
-    except Exception as e:
+    except APIError as e:
         print("Error giving admin: ", str(e))
         return False
 
@@ -131,17 +132,18 @@ async def get_bots_with_ids(supabase: AsyncClient, ids: list[int]) -> list[int]:
         json = res.model_dump()
 
         return [x["id"] for x in json["data"]]
-    except Exception as e:
+    except APIError as e:
         print("Error getting bots by ids: ", str(e))
         return []
 
 
 async def get_bot(supabase: AsyncClient, _id: int) -> DBBot | None:
 
-    res = await supabase.from_("chats").select("id").eq("id", _id).execute()
     try:
+        res = await supabase.from_("chats").select("id").eq("id", _id).execute()
         return res.model_dump()["data"][0]
-    except (KeyError, IndexError) as e:
+
+    except (KeyError, IndexError, APIError) as e:
         print(f"No such bot: {str(e)}")
         return None
 
@@ -152,8 +154,46 @@ async def get_chats(supabase: AsyncClient) -> list[DBBot] | None:
     try:
         return res.model_dump()["data"]
     except (KeyError, IndexError) as e:
-        print(f"No such bot: {str(e)}")
+        print("No bots found: ", str(e))
         return None
+
+
+async def refresh_character_chats(
+    supabase: AsyncClient, _id: str, new_char: Character
+) -> bool:
+
+    try:
+        from bot.utils import character_sys_message
+
+        res = (
+            await supabase.from_("chats")
+            .select("messages, id")
+            .eq("custom_character_id", _id)
+            .execute()
+        )
+
+        chats = res.model_dump()["data"]
+
+        for chat in chats:
+            chat["messages"][0] = character_sys_message(new_char)
+
+            _ = (
+                await supabase.from_("chats")
+                .update(
+                    {
+                        "bot_name": new_char["name"],
+                        "messages": chat["messages"],
+                    }
+                )
+                .eq("custom_character_id", _id)
+                .execute()
+            )
+
+        return True
+
+    except (KeyError, IndexError, APIError) as e:
+        print("No such character, or no chats assigned to it: ", str(e))
+        return False
 
 
 async def new_character(
@@ -187,7 +227,7 @@ async def new_character(
             .execute()
         )
         return True
-    except Exception as e:
+    except APIError as e:
         print("Error creating character: ", str(e))
         return False
 
@@ -198,17 +238,17 @@ async def get_character(supabase: AsyncClient, _id: str) -> Character | None:
         json = res.model_dump()
         return json["data"][0]
 
-    except Exception as e:
+    except (APIError, IndexError) as e:
         print("Error retreiving character: ", str(e))
         return None
 
 
 async def remove_character(supabase: AsyncClient, _id: str) -> bool:
     try:
-        res = await supabase.from_("characters").delete().eq("id", _id).execute()
+        await supabase.from_("characters").delete().eq("id", _id).execute()
 
         return True
-    except Exception as e:
+    except APIError as e:
         print("Error retreiving character: ", str(e))
         return False
 
@@ -217,32 +257,31 @@ async def upload_character_profile(
     supabase: AsyncClient, url: str, character_id: str
 ) -> str | None:
     try:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(url) as res:
-                if res.status != 200:
-                    return None
+        async with aiohttp.ClientSession() as session, session.get(url) as res:
+            if res.status != 200:
+                return None
 
-                await aiofiles.os.makedirs("temp/profiles", exist_ok=True)
+            await aiofiles.os.makedirs("temp/profiles", exist_ok=True)
 
-                content = await res.read()
+            content = await res.read()
 
-                res = await supabase.storage.from_("characters").upload(
-                    file=content,
-                    path=f"profiles/{character_id}.png",
-                    file_options={
-                        "content-type": "image/png",
-                        "cache-control": "3600",
-                        "x-upsert": "true",
-                    },
-                )
+            res = await supabase.storage.from_("characters").upload(
+                file=content,
+                path=f"profiles/{character_id}.png",
+                file_options={
+                    "content-type": "image/png",
+                    "cache-control": "3600",
+                    "x-upsert": "true",
+                },
+            )
 
-                public_url = await supabase.storage.from_("characters").get_public_url(
-                    f"profiles/{character_id}.{ext}"
-                )
+            public_url = await supabase.storage.from_("characters").get_public_url(
+                f"profiles/{character_id}.png"
+            )
 
-                return public_url
+            return public_url
 
-    except Exception as e:
+    except APIError as e:
         print("error getting pulbic link: ", str(e))
         return None
 
@@ -252,7 +291,7 @@ async def delete_character_profile(supabase: AsyncClient, character_id: str):
         await supabase.storage.from_("characters").remove(
             paths=[f"profiles/{character_id}.png"]
         )
-    except Exception as e:
+    except APIError as e:
         print("error deleting character profile: ", str(e))
 
 
@@ -268,7 +307,7 @@ async def get_character_owner(supabase: AsyncClient, _id: str) -> int | None:
 
         return int(json["data"][0]["creator_id"])
 
-    except Exception as e:
+    except (APIError, KeyError, IndexError) as e:
         print("Error retreiving character: ", str(e))
         return None
 
@@ -281,6 +320,6 @@ async def get_characters(
         json = res.model_dump()
 
         return json["data"]
-    except Exception as e:
+    except APIError as e:
         print("Error retreiving characters message ids: ", str(e))
         return None

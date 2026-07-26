@@ -2,7 +2,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.apis.supabase import get_character, remove_character
+from bot.apis.supabase import get_character, remove_bot, remove_character
 from bot.bot import Talky
 from bot.commands.checks import is_in_creation_channel
 from bot.consts import (
@@ -179,6 +179,7 @@ class CharacterCommands(commands.Cog):
                         await c.delete()
 
                     del interaction.client.running_bots[k]
+                    # deleting from the database will be handled in the next cache sync
 
             await interaction.user.send(
                 f"Your character {char['name']} has been removed!\nIts's ID will no longer be functional"
