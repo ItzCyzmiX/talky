@@ -5,6 +5,7 @@ from discord.ext import commands
 from bot.apis.supabase import (
     add_admin,
     remove_bot,
+    update_messages,
 )
 from bot.bot import Talky
 from bot.commands.checks import is_chat_admin, is_in_chatbot_channel
@@ -249,4 +250,30 @@ class AdminCommands(commands.Cog):
 
         await interaction.response.send_message(
             "This chat is now public!", ephemeral=True, delete_after=10
+        )
+
+    @app_commands.command(name="clear", description="Clears the chat")
+    @app_commands.guilds(GUILD)
+    @is_chat_admin()
+    @is_in_chatbot_channel()
+    async def clear(self, interaction: discord.Interaction):
+        await interaction.response.defer(ephemeral=True)  # Prevent timeout
+        deleted = await interaction.channel.purge(limit=None)
+
+        interaction.client.running_bots[str(interaction.channel_id)]["messages"] = [
+            interaction.client.running_bots[str(interaction.channel_id)]["messages"][0]
+        ]
+
+        await update_messages(
+            interaction.client.supabase,
+            interaction.channel_id,
+            {
+                "messages": interaction.client.running_bots[
+                    str(interaction.channel_id)
+                ]["messages"]
+            },
+        )
+
+        await interaction.followup.send(
+            content=f"Successfully deleted {len(deleted)} messages.", ephemeral=True
         )

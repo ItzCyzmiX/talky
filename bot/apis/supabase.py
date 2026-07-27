@@ -35,9 +35,9 @@ async def update_messages(supabase: AsyncClient, _id: int, new_msgs: dict) -> bo
 
 
 async def get_messages(supabase: AsyncClient, _id: int) -> list[Message] | None:
-    res = await supabase.from_("chats").select("messages").eq("id", _id).execute()
 
     try:
+        res = await supabase.from_("chats").select("messages").eq("id", _id).execute()
         return res.model_dump()["data"][0]["messages"]["messages"]
     except APIError as e:
         print("Error getting messages by channel id: ", str(e))
