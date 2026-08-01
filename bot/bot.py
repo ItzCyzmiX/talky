@@ -245,12 +245,12 @@ class Talky(commands.Bot):
                                 "Uploaded image failed, try again",
                                 delete_after=10,
                             )
-                            return
-
-                        await message.channel.send(
+                        else:
+                        	   await message.channel.send(
                             f"{model} failed to generate a response, try again...",
                             delete_after=10,
                         )
+                        await message.delete()
                         return
 
                     response_message = await message.channel.send(
