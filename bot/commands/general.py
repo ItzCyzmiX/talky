@@ -47,6 +47,7 @@ class GeneralCommands(commands.Cog):
                 "- `/edit <character_id> [new_profile] [forkable]` — Edit your custom character *(Character creator only)*\n"
                 "- `/delete <character_id>` — Delete your custom character (and all chats made with it) *(Character creator only)*\n\n"
                 "### Context Menu Commands (Right-Click)\n"
+                "- `/clear` — Delete all messages in current chat\n"
                 "- **Delete AI message** (On Bot response) — Delete the AI's message from history *(Anyone)*\n"
                 "- **Edit AI message** (On Bot response) — Edit the AI's response via modal popup *(Anyone)*\n"
                 "- **Regenerate AI message** (On Bot response) — Regenerate AI's response *(Anyone)*"
