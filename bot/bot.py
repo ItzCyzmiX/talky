@@ -263,7 +263,7 @@ class Talky(commands.Bot):
                     [
                         {
                             "role": "user",
-                            "content": msg,
+                            "content": f"({sanitize(message.author.name)}) {msg}",
                             "discord_message_id": message.id,
                         },
                         {
