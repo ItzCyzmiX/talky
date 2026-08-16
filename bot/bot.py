@@ -239,6 +239,14 @@ class Talky(commands.Bot):
 
                     response = await send_msg_to_bot(new_msgs, model)
 
+                    if response == "ratelimit":
+                        await message.channel.send(
+                            "You are ratelimited, try again in a few minutes (15 to 30)",
+                            delete_after=10,
+                        )
+                        await message.delete()
+                        return
+
                     if response is None:
                         if model == "vision":
                             await message.channel.send(
@@ -246,10 +254,10 @@ class Talky(commands.Bot):
                                 delete_after=10,
                             )
                         else:
-                        	   await message.channel.send(
-                            f"{model} failed to generate a response, try again...",
-                            delete_after=10,
-                        )
+                            await message.channel.send(
+                                f"{model} failed to generate a response, try again...",
+                                delete_after=10,
+                            )
                         await message.delete()
                         return
 

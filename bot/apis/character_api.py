@@ -2,13 +2,14 @@ import os
 from typing import Literal
 
 from dotenv import load_dotenv
-from groq import AsyncGroq
+from groq import AsyncGroq, RateLimitError
 
 load_dotenv()
 
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
 VISION_MODEL = "qwen/qwen3.6-27b"
+DEFAULT_MODEL = "qwen/qwen3.6-27b"  # since llama3.3 70b is discomisioned in Groq
 
 
 async def send_msg_to_bot(
@@ -23,9 +24,7 @@ async def send_msg_to_bot(
     return await _use_groq(filtred_msgs)
 
 
-async def _use_groq(
-    messages: list[dict], model: str = "llama-3.3-70b-versatile"
-) -> str | None:
+async def _use_groq(messages: list[dict], model: str = DEFAULT_MODEL) -> str | None:
 
     try:
         params = {
@@ -45,6 +44,9 @@ async def _use_groq(
 
         return completion.choices[0].message.content
 
-    except Exception as groq_e:
-        print("Groq errored out: ", str(groq_e))
+    except RateLimitError as e:
+        return "ratelimit"
+
+    except Exception as e:
+        print("Groq error:", e)
         return None
