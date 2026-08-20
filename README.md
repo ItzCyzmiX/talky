@@ -2,6 +2,8 @@
 
 A Discord bot that lets you create isolated, persistent AI chatbots — each one living in its own channel with its own memory, admin controls, Chat with anyone, anywhere, about anything.
 
+> **Model update:** Llama 3.3 70B has been decommissioned by Groq. Talky now uses **Qwen 3.6 27B** for both normal chats and image chats.
+
 ---
 
 ## TEST SERVER!
@@ -37,13 +39,13 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 - Upload images in your messages
 - AI analyzes images and responds based on visual content
 - Supports up to **4 images per message** (20MB total max)
-- Uses **Qwen 3.6 27B vision model** for accurate image understanding
+- Uses **Qwen 3.6 27B** for both image understanding and chat responses
 - Works seamlessly with text in the same message
 
 ### 🧠 **Flexible AI Model Selection**
 
-- **Default**: Llama 3.3 70B (via Groq) — fast, reliable, and free
-- **Vision Mode**: Automatic when images are detected (Qwen 3.6 27B)
+- Uses **Qwen 3.6 27B** (via Groq) for both normal chats and image chats
+- Image understanding is enabled automatically when images are detected
 
 ### ✏️ **Edit, Delete & Regenerate Messages**
 
@@ -112,14 +114,14 @@ Profile images aren't stored as a column — they're uploaded to a public Supaba
 2. If images are attached, bot switches to **vision mode** automatically
 3. Bot retrieves the channel's message history from in-memory cache
 4. Bot formats messages with usernames and image URLs: `(username) message content` + images
-5. Llama (or vision model) generates a response with full context
+5. Qwen 3.6 27B generates a response with full context
 6. Response is sent to Discord and saved to cache & database
 7. If user edits/deletes → both Discord and database are updated
 
 ### Image Processing
 
 - Accepts **image attachments** (PNG, JPG, WebP, etc.)
-- **Automatic model switching** to vision-capable Qwen model when images detected
+- **Automatic image understanding** with Qwen 3.6 27B when images are detected
 - Images passed as **URLs to the API** (fast, no local storage needed)
 - **Max 4 images per message**, **20MB total** to prevent API throttling
 - Vision responses seamlessly integrated into conversation history
@@ -163,7 +165,7 @@ Profile images aren't stored as a column — they're uploaded to a public Supaba
   - `applications.commands` scope
   - Permissions: **Manage Channels**, **Send Messages**, **Embed Links**
   - ([Create at Discord Developer Portal](https://discord.com/developers/applications))
-- **Groq API key** ([console.groq.com](https://console.groq.com/)) — for Llama and vision models
+- **Groq API key** ([console.groq.com](https://console.groq.com/)) — for Qwen 3.6 27B
 - **Giphy API key** for bot GIFs ([developers.giphy.com](https://developers.giphy.com/))
 - **Supabase project** ([supabase.com](https://supabase.com/))
 
@@ -304,7 +306,7 @@ Or manually:
 ## 📦 Dependencies
 
 - **discord.py 2.7.1** — Discord bot framework
-- **groq 0.18.0** — Groq API client (Llama models + vision)
+- **groq 0.18.0** — Groq API client (Qwen 3.6 27B text and vision)
 - **python-dotenv 1.0.1** — Environment variable management
 - **aiohttp 3.13.3** — Async HTTP (Giphy API)
 - **aiofiles 24.1.0** — Async File Manipulation
