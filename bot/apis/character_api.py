@@ -8,8 +8,8 @@ load_dotenv()
 
 groq_client = AsyncGroq(api_key=os.getenv("GROQ_API_KEY"))
 
-VISION_MODEL = "qwen/qwen3.6-27b"
-DEFAULT_MODEL = "qwen/qwen3.6-27b"  # since llama3.3 70b is discomisioned in Groq
+VISION_MODEL = "qwen/qwen3.8-27b"
+DEFAULT_MODEL = "qwen/qwen3.8-27b"  # since qwen3.6-27b has been discomisioned by Groq
 
 
 async def send_msg_to_bot(
