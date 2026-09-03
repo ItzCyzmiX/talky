@@ -325,7 +325,8 @@ async def get_characters(
         return None
 
 
-async def get_api_keys()
+async def get_api_keys():
+    pass
 
 async def set_api_key(supabase: AsyncClient, user_id: str, groq_key: str) -> bool:
     try:
