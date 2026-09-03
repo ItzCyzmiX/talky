@@ -8,6 +8,13 @@ from postgrest.exceptions import APIError
 from supabase import AsyncClient, acreate_client
 
 from bot.types import Character, DBBot, Message
+from cryptography.fernet import Fernet
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+cipher = Fernet(os.getenv("FERNET_KEY").encode())
 
 
 async def create_supabase() -> AsyncClient | None:
@@ -325,27 +332,41 @@ async def get_characters(
         return None
 
 
-async def get_api_keys():
-    pass
-
 async def set_api_key(supabase: AsyncClient, user_id: str, groq_key: str) -> bool:
+    global cipher
+    encrypted_key = cipher.encrypt(groq_key.encode()).decode()
+
     try:
-        await supabase.from_("users").upsert({
-            "user_id": user_id,
-            "groq_key": groq_key
-        }).execute()
+        await supabase.from_("users").upsert(
+            {"user_id": user_id, "groq_key": encrypted_key}
+        ).execute()
         return True
     except APIError as e:
         print("Error setting api key: ", str(e))
 
     return False
 
+
 async def get_api_key(supabase: AsyncClient, user_id: str) -> str | None:
+    global cipher
+
     try:
-        res = await supabase.from_("users").select("groq_key").eq("user_id", user_id).execute()
+        res = (
+            await supabase.from_("users")
+            .select("groq_key")
+            .eq("user_id", user_id)
+            .execute()
+        )
         json = res.model_dump()
-        return json["data"][0]["groq_key"]
+
+        encrypted_key: str = json["data"][0]["groq_key"]
+
+        decrypted_key = cipher.decrypt(encrypted_key.encode()).decode()
+
+        return decrypted_key
+    except IndexError:
+        return None
     except APIError as e:
-        print("Error setting api key: ", str(e))
+        print("Error getting api key: ", str(e))
 
     return None

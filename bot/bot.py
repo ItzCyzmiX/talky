@@ -43,7 +43,6 @@ class Talky(commands.Bot):
 
         self.supabase = supabase
         self.running_bots: RunningBots = {}
-        self.users = {}
         self.version: str = "v1.4.1"
 
     async def setup_hook(self):
@@ -245,7 +244,7 @@ class Talky(commands.Bot):
 
                     if api_key is None:
                         await message.channel.send(
-                            "Error retreiving your api key, please make sure you have set your api key!",
+                            "Error retreiving your api key, please make sure you have set your api key!\nhttps://console.groq.com",
                             delete_after=10,
                         )
                         await message.delete()
@@ -308,10 +307,10 @@ class Talky(commands.Bot):
 
                 self.running_bots[channel_id]["messages"] = new_msgs
         except Exception as e:
-            print(str(e))
             await message.channel.send(
                 "Error while generating response, try again!", delete_after=10
             )
+            raise e
 
         finally:
             all_overwrites = message.channel.overwrites_for(message.guild.default_role)

@@ -61,12 +61,12 @@ class GeneralCommands(commands.Cog):
         api_key="The Groq API Key",
     )
     @app_commands.guilds(GUILD)
-    @is_in_chatbot_channel()
+    @is_in_creation_channel()
     async def set_api_key(self, interaction: discord.Interaction, api_key: str):
 
-        if api_key[4:] != "gsk_":
+        if api_key[:4] != "gsk_":
             await interaction.response.send_message(
-                "Invalid Groq Key",
+                "Invalid Groq Key, please get a valid key from the Groq console: https://console.groq.com",
                 ephemeral=True,
                 delete_after=DELETE_DELAY,
             )
@@ -86,6 +86,27 @@ class GeneralCommands(commands.Cog):
             delete_after=DELETE_DELAY,
         )
 
+    @app_commands.command(name="mykey", description="Get your current api key")
+    @app_commands.guilds(GUILD)
+    @is_in_creation_channel()
+    async def mykey(self, interaction: discord.Interaction):
+
+        have_set_key = await get_api_key(
+            supabase=self.bot.supabase, user_id=str(interaction.user.id)
+        )
+
+        msg = (
+            "You havent set an api key yet!\nGet one from the Groq console: https://console.groq.com"
+            if have_set_key is None
+            else f"Yout current api key is:\n{have_set_key}"
+        )
+
+        await interaction.response.send_message(
+            msg,
+            ephemeral=True,
+            delete_after=DELETE_DELAY,
+        )
+
     @app_commands.command(name="status", description="Get if you are admin or not")
     @app_commands.guilds(GUILD)
     @is_in_chatbot_channel()
@@ -95,17 +116,7 @@ class GeneralCommands(commands.Cog):
             bot=self.bot, channel_id=interaction.channel_id, user_id=interaction.user.id
         )
 
-        have_set_key = await get_api_key(
-            supabase=self.bot.supabase, user_id=str(interaction.user.id)
-        )
-
-        msg = (
-            "You are"
-            + (" " if am_admin else " not ")
-            + "admin and you have "
-            + ("not" if have_set_key is None else "")
-            + " set your api key"
-        )
+        msg = "You are" + (" " if am_admin else " not ") + "admin"
 
         await interaction.response.send_message(
             msg,
