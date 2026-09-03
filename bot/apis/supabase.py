@@ -323,3 +323,28 @@ async def get_characters(
     except APIError as e:
         print("Error retreiving characters message ids: ", str(e))
         return None
+
+
+async def get_api_keys()
+
+async def set_api_key(supabase: AsyncClient, user_id: str, groq_key: str) -> bool:
+    try:
+        await supabase.from_("users").upsert({
+            "user_id": user_id,
+            "groq_key": groq_key
+        }).execute()
+        return True
+    except APIError as e:
+        print("Error setting api key: ", str(e))
+
+    return False
+
+async def get_api_key(supabase: AsyncClient, user_id: str) -> str | None:
+    try:
+        res = await supabase.from_("users").select("groq_key").eq("user_id", user_id).execute()
+        json = res.model_dump()
+        return json["data"][0]["groq_key"]
+    except APIError as e:
+        print("Error setting api key: ", str(e))
+
+    return None

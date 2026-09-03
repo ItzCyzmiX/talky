@@ -42,6 +42,7 @@ class Talky(commands.Bot):
 
         self.supabase = supabase
         self.running_bots: RunningBots = {}
+        self.users = {}
         self.version: str = "v1.4.1"
 
     async def setup_hook(self):
@@ -136,6 +137,8 @@ class Talky(commands.Bot):
 
         if channel_id not in self.running_bots.keys():
             return
+
+        
 
         # i hate this function, but im too lazy and dumb to rewrite it
         try:

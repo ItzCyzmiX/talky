@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.apis.supabase import new_bot
+from bot.apis.supabase import new_bot, set_api_key
 from bot.bot import Talky
 from bot.commands.checks import (
     _validate_admin,
@@ -46,14 +46,42 @@ class GeneralCommands(commands.Cog):
                 "- `/create [profile_image] [forkable]` — Creates a custom character *(Anyone)*\n"
                 "- `/edit <character_id> [new_profile] [forkable]` — Edit your custom character *(Character creator only)*\n"
                 "- `/delete <character_id>` — Delete your custom character (and all chats made with it) *(Character creator only)*\n\n"
-                "### Context Menu Commands (Right-Click)\n"
                 "- `/clear` — Delete all messages in current chat\n"
+                "### Context Menu Commands (Right-Click)\n"
                 "- **Delete AI message** (On Bot response) — Delete the AI's message from history *(Anyone)*\n"
                 "- **Edit AI message** (On Bot response) — Edit the AI's response via modal popup *(Anyone)*\n"
                 "- **Regenerate AI message** (On Bot response) — Regenerate AI's response *(Anyone)*"
             ),
             ephemeral=True,
             delete_after=DELETE_DELAY * 3,
+        )
+
+    @app_commands.command(name="key", description="Set my groq api key")
+    @app_commands.describe(
+        api_key="The Groq API Key",
+    )
+    @app_commands.guilds(GUILD)
+    @is_in_chatbot_channel()
+    async def status(self, interaction: discord.Interaction, api_key: str):
+
+        if api_key[4:] != "gsk_":
+            await interaction.response.send_message(
+                "Invalid Groq Key",
+                ephemeral=True,
+                delete_after=DELETE_DELAY,
+            )
+            return
+
+        ok = await set_api_key(
+            supabase=self.bot.supabase, user_id=interaction.user.id, groq_key=api_key
+        )
+
+        msg = "Groq API key has been set" if ok else "Error setting Groq API key"
+
+        await interaction.response.send_message(
+            msg,
+            ephemeral=True,
+            delete_after=DELETE_DELAY,
         )
 
     @app_commands.command(name="status", description="Get if you are admin or not")

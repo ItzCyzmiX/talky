@@ -8,6 +8,10 @@ class Message(TypedDict):
     role: Literal["assistant", "user", "system"]
 
 
+class RateLimit(TypedDict):
+    retry_after: int
+
+
 class RunningBot(TypedDict):
     admins: list[str]
     messages: list[Message]
