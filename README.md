@@ -3,6 +3,8 @@
 A Discord bot that lets you create isolated, persistent AI chatbots — each one living in its own channel with its own memory, admin controls, Chat with anyone, anywhere, about anything.
 
 > **Model update:** Qwen 3.6 27B has been decommissioned by Groq. Talky now uses **Qwen 3.8 27B** for both normal chats and image chats.
+> 
+> **API Keys update:** Talky now uses **per-user Groq API keys** — each user provides their own API key for seamless access to Groq's models.
 
 ---
 
@@ -21,7 +23,7 @@ a test server for talky, feel free to join and stress test it (poor talky) [JOIN
 ### 🎭 **Custom Characters**
 
 - Create your own AI character with `/create`, which opens a modal to set the character's **name, personality, bio, relationship, and starting conversation message**
-- `/create` also takes optional parameters: **`forkable`** (defaults to `true`, controls whether others can fork the character) and **`profile`** (an image attachment used as the character's profile picture)
+- `/create` also takes optional parameters: **`forkable`** (defaults to `true`, controls whether others can fork the character) and **`profile`** (an image attachment used as the character's profile)
 - Edit any character you own with `/edit` — opens the same modal to update **name, personality, bio, relationship, and starting message**, plus optional **`profile`** and **`forkable`** parameters
 - If a character is forkable, a **Fork** button appears on its embed in the custom characters channel — clicking it makes your own editable copy without touching the original
 - Characters show up in a dedicated **custom characters channel**, where anyone in the server can browse characters made by other users
@@ -106,6 +108,13 @@ Custom characters are backed by their own row in a separate `characters` table:
 | `forked_from`      | text    | ID of the original character this was forked from (null if not a fork)                                                                          |
 | `forkable`         | boolean | Whether others can fork this character (defaults to `true`)                                                                                     |
 
+Per-user Groq API keys are securely stored in a `users` table, encrypted with Fernet:
+
+| Field    | Type    | Purpose                                                           |
+| -------- | ------- | ----------------------------------------------------------------- |
+| `user_id` | text    | Discord user ID (primary key)                                     |
+| `groq_key` | text   | Encrypted Groq API key (encrypted using FERNET_KEY)               |
+
 Profile images aren't stored as a column — they're uploaded to a public Supabase Storage bucket named **`characters`**, inside a **`profiles`** folder, keyed by character ID.
 
 ### Message Flow
@@ -130,20 +139,20 @@ Profile images aren't stored as a column — they're uploaded to a public Supaba
 
 ## 🛠️ Commands
 
-| Command    | Arguments                                                                                                         | Description                                                        | Permissions                  |
-| ---------- | ----------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------ | ---------------------------- |
-| `/talk`    | `<bot_name>` `[private]`                                                                                          | Create a new chatbot channel                                       | Anyone (in creation channel) |
-| `/create`  | `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message)                  | Create a custom character, listed in the custom characters channel | Anyone (in creation channel) |
-| `/edit`    | `<character_id>` `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message) | Edit a custom character you own                                    | Character owner only         |
-| `/delte`   | `<character_id>`                                                                                                  | Delete a custom character you own                                  | Character owner only         |
-| `/help`    | —                                                                                                                 | Show all available commands                                        | Anyone (in creation channel) |
-| `/status`  | —                                                                                                                 | Check if you're an admin in current channel                        | Anyone                       |
-| `/admin`   | `<user>`                                                                                                          | Promote a user to admin                                            | Admin only                   |
-| `/add`     | `<user>`                                                                                                          | Add user to private chat                                           | Admin only                   |
-| `/private` | —                                                                                                                 | Turns public chat to private                                       | Admin only                   |
-| `/kick`    | `<user>`                                                                                                          | Remove user from private chat                                      | Admin only                   |
-| `/public`  | —                                                                                                                 | Turns private chat to public                                       | Admin only                   |
-| `/kill`    | —                                                                                                                 | Delete the chatbot channel permanently                             | Admin only                   |
+| Command    | Arguments                                                                                                         | Description                                                     |
+| ---------- | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `/talk`    | `<bot_name>` `[private]`                                                                                          | Create a new chatbot channel                                    |
+| `/create`  | `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message)                  | Create a custom character, listed in the custom characters channel |
+| `/edit`    | `<character_id>` `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message) | Edit a custom character you own                                 |
+| `/delte`   | `<character_id>`                                                                                                  | Delete a custom character you own                               |
+| `/help`    | —                                                                                                                 | Show all available commands                                     |
+| `/status`  | —                                                                                                                 | Check if you're an admin in current channel                     |
+| `/admin`   | `<user>`                                                                                                          | Promote a user to admin                                         |
+| `/add`     | `<user>`                                                                                                          | Add user to private chat                                        |
+| `/private` | —                                                                                                                 | Turns public chat to private                                    |
+| `/kick`    | `<user>`                                                                                                          | Remove user from private chat                                   |
+| `/public`  | —                                                                                                                 | Turns private chat to public                                    |
+| `/kill`    | —                                                                                                                 | Delete the chatbot channel permanently                          |
 
 ### Context Menu Commands (Right-Click)
 
@@ -165,7 +174,7 @@ Profile images aren't stored as a column — they're uploaded to a public Supaba
   - `applications.commands` scope
   - Permissions: **Manage Channels**, **Send Messages**, **Embed Links**
   - ([Create at Discord Developer Portal](https://discord.com/developers/applications))
-- **Groq API key** ([console.groq.com](https://console.groq.com/)) — for Qwen 3.8 27B
+- **Groq API key** ([console.groq.com](https://console.groq.com/)) — **Users provide their own API keys** for Qwen 3.8 27B
 - **Giphy API key** for bot GIFs ([developers.giphy.com](https://developers.giphy.com/))
 - **Supabase project** ([supabase.com](https://supabase.com/))
 
@@ -201,7 +210,7 @@ CREATE TABLE chats (
   id BIGINT PRIMARY KEY,
   admins TEXT[],
   bot_name TEXT,
-  messages JSONB,
+  messages JSONB
 );
 ```
 
@@ -234,6 +243,22 @@ CREATE TABLE characters (
 );
 ```
 
+Create a third table named `users` to securely store per-user encrypted Groq API keys:
+
+| Column    | Type | Nullable | Notes                                       |
+| --------- | ---- | -------- | ------------------------------------------- |
+| `user_id` | text | ❌       | Discord user ID (primary key)               |
+| `groq_key` | text | ❌       | Encrypted Groq API key (using Fernet)       |
+
+**Example SQL:**
+
+```sql
+CREATE TABLE users (
+  user_id TEXT PRIMARY KEY,
+  groq_key TEXT NOT NULL
+);
+```
+
 Also create a **public Storage bucket** named `characters` with a `profiles` folder inside it — this is where character profile images uploaded via `/create` and `/edit` are stored.
 
 ### 4. Configure Environment Variables
@@ -247,9 +272,8 @@ GUILD_ID=your_discord_guild_id
 BOTS_CATEGORY_ID=your_category_id
 BOT_CREATION_CHANNEL_ID=your_channel_id
 
-# AI Models
-GROQ_API_KEY=your_groq_api_key
-
+# Encryption (for storing per-user Groq API keys)
+FERNET_KEY=your_fernet_key_here
 
 # Media
 GIPHY_KEY=your_giphy_api_key
@@ -259,12 +283,36 @@ SUPABASE_URL=your_supabase_project_url
 SUPABASE_SECRET_KEY=your_supabase_service_role_key
 ```
 
+**How to generate FERNET_KEY:**
+
+The `FERNET_KEY` is used to encrypt and decrypt user Groq API keys before storing them in the database. Generate it using Python:
+
+```python
+from cryptography.fernet import Fernet
+key = Fernet.generate_key()
+print(key.decode())  # Copy this value to .env
+```
+
+Save the key safely — you'll need it to decrypt API keys. If you lose it, existing encrypted keys cannot be recovered.
+
 **How to find Discord IDs:**
 
 1. Enable Developer Mode in Discord (User Settings → Advanced → Developer Mode)
 2. Right-click on server/category/channel → "Copy Server/Channel ID"
 
-### 5. Optional Configuration
+### 5. Per-User Groq API Keys
+
+Users provide their own Groq API keys through the bot's interface or settings. Keys are encrypted using the `FERNET_KEY` before storage in the `users` database table, ensuring secure handling of sensitive credentials.
+
+To obtain a Groq API key, users should:
+1. Visit [console.groq.com](https://console.groq.com/)
+2. Create/sign into their account
+3. Generate an API key
+4. Provide it to the bot when prompted
+
+The bot automatically encrypts and stores the key in the `users` table associated with their Discord user ID. Each user has their own isolated Groq API key.
+
+### 6. Optional Configuration
 
 Edit `bot/consts.py` to customize:
 
@@ -274,7 +322,7 @@ DELETE_DELAY = 15                                # Seconds before ephemeral mess
 MESSAGE_HISTOY_LIMIT = 100                       # Last N messages kept in memory
 ```
 
-### 6. Run the Bot
+### 7. Run the Bot
 
 ```bash
 python main.py
@@ -286,7 +334,7 @@ You should see:
 Talky started!
 ```
 
-### 7. Invite to Your Server
+### 8. Invite to Your Server
 
 Use this URL (replace `YOUR_CLIENT_ID`):
 
@@ -308,6 +356,7 @@ Or manually:
 - **discord.py 2.7.1** — Discord bot framework
 - **groq 0.18.0** — Groq API client (Qwen 3.8 27B text and vision)
 - **python-dotenv 1.0.1** — Environment variable management
+- **cryptography** — Fernet encryption for secure API key storage
 - **aiohttp 3.13.3** — Async HTTP (Giphy API)
 - **aiofiles 24.1.0** — Async File Manipulation
 - **supabase 2.27.2** — Database client
