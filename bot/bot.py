@@ -10,6 +10,7 @@ from bot.apis.character_api import send_msg_to_bot
 from bot.apis.supabase import (
     create_supabase,
     delete_character_profile,
+    get_api_key,
     get_characters,
     get_messages,
     remove_character,
@@ -138,8 +139,6 @@ class Talky(commands.Bot):
         if channel_id not in self.running_bots.keys():
             return
 
-        
-
         # i hate this function, but im too lazy and dumb to rewrite it
         try:
             async with self.running_bots[channel_id]["lock"]:
@@ -240,7 +239,21 @@ class Talky(commands.Bot):
 
                     new_msgs = new_msgs[-MESSAGE_HISTOY_LIMIT:]
 
-                    response = await send_msg_to_bot(new_msgs, model)
+                    api_key = await get_api_key(
+                        supabase=self.supabase, user_id=str(message.author.id)
+                    )
+
+                    if api_key is None:
+                        await message.channel.send(
+                            "Error retreiving your api key, please make sure you have set your api key!",
+                            delete_after=10,
+                        )
+                        await message.delete()
+                        return
+
+                    response = await send_msg_to_bot(
+                        messages=new_msgs, api_key=api_key, model=model
+                    )
 
                     if response == "ratelimit":
                         await message.channel.send(

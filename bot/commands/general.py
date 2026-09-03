@@ -5,7 +5,7 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-from bot.apis.supabase import new_bot, set_api_key
+from bot.apis.supabase import get_api_key, new_bot, set_api_key
 from bot.bot import Talky
 from bot.commands.checks import (
     _validate_admin,
@@ -62,7 +62,7 @@ class GeneralCommands(commands.Cog):
     )
     @app_commands.guilds(GUILD)
     @is_in_chatbot_channel()
-    async def status(self, interaction: discord.Interaction, api_key: str):
+    async def set_api_key(self, interaction: discord.Interaction, api_key: str):
 
         if api_key[4:] != "gsk_":
             await interaction.response.send_message(
@@ -73,7 +73,9 @@ class GeneralCommands(commands.Cog):
             return
 
         ok = await set_api_key(
-            supabase=self.bot.supabase, user_id=interaction.user.id, groq_key=api_key
+            supabase=self.bot.supabase,
+            user_id=str(interaction.user.id),
+            groq_key=api_key,
         )
 
         msg = "Groq API key has been set" if ok else "Error setting Groq API key"
@@ -93,7 +95,17 @@ class GeneralCommands(commands.Cog):
             bot=self.bot, channel_id=interaction.channel_id, user_id=interaction.user.id
         )
 
-        msg = "You are" + (" " if am_admin else " not ") + "admin"
+        have_set_key = await get_api_key(
+            supabase=self.bot.supabase, user_id=str(interaction.user.id)
+        )
+
+        msg = (
+            "You are"
+            + (" " if am_admin else " not ")
+            + "admin and you have "
+            + ("not" if have_set_key is None else "")
+            + " set your api key"
+        )
 
         await interaction.response.send_message(
             msg,
