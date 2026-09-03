@@ -144,15 +144,18 @@ Profile images aren't stored as a column — they're uploaded to a public Supaba
 | `/talk`    | `<bot_name>` `[private]`                                                                                          | Create a new chatbot channel                                    |
 | `/create`  | `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message)                  | Create a custom character, listed in the custom characters channel |
 | `/edit`    | `<character_id>` `[forkable]` `[profile]` (opens a modal: name, personality, bio, relationship, starting message) | Edit a custom character you own                                 |
-| `/delte`   | `<character_id>`                                                                                                  | Delete a custom character you own                               |
+| `/delete`  | `<character_id>`                                                                                                  | Delete a custom character you own                               |
 | `/help`    | —                                                                                                                 | Show all available commands                                     |
 | `/status`  | —                                                                                                                 | Check if you're an admin in current channel                     |
 | `/admin`   | `<user>`                                                                                                          | Promote a user to admin                                         |
 | `/add`     | `<user>`                                                                                                          | Add user to private chat                                        |
-| `/private` | —                                                                                                                 | Turns public chat to private                                    |
 | `/kick`    | `<user>`                                                                                                          | Remove user from private chat                                   |
+| `/private` | —                                                                                                                 | Turns public chat to private                                    |
 | `/public`  | —                                                                                                                 | Turns private chat to public                                    |
 | `/kill`    | —                                                                                                                 | Delete the chatbot channel permanently                          |
+| `/key`     | `<api_key>`                                                                                                       | Set your personal Groq API key (required to use the bot)        |
+| `/mykey`   | —                                                                                                                 | View your current Groq API key                                  |
+| `/clear`   | —                                                                                                                 | Delete all messages in current chat                             |
 
 ### Context Menu Commands (Right-Click)
 
@@ -302,15 +305,16 @@ Save the key safely — you'll need it to decrypt API keys. If you lose it, exis
 
 ### 5. Per-User Groq API Keys
 
-Users provide their own Groq API keys through the bot's interface or settings. Keys are encrypted using the `FERNET_KEY` before storage in the `users` database table, ensuring secure handling of sensitive credentials.
+Users must provide their own Groq API keys to use Talky. Keys are encrypted using the `FERNET_KEY` before storage in the `users` database table, ensuring secure handling of sensitive credentials.
 
-To obtain a Groq API key, users should:
+To obtain and set a Groq API key:
 1. Visit [console.groq.com](https://console.groq.com/)
-2. Create/sign into their account
+2. Create/sign into your account
 3. Generate an API key
-4. Provide it to the bot when prompted
+4. Use `/key <api_key>` in the bot creation channel to set your key
+5. Use `/mykey` to verify your key has been stored (shows the current key)
 
-The bot automatically encrypts and stores the key in the `users` table associated with their Discord user ID. Each user has their own isolated Groq API key.
+The bot automatically encrypts and stores the key in the `users` table associated with your Discord user ID. Each user has their own isolated Groq API key for secure access to the Groq API.
 
 ### 6. Optional Configuration
 
