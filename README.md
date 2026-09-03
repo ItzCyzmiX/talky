@@ -2,7 +2,7 @@
 
 A Discord bot that lets you create isolated, persistent AI chatbots — each one living in its own channel with its own memory, admin controls, Chat with anyone, anywhere, about anything.
 
-> **Model update:** Qwen 3.8 27B has been decommissioned by Groq. Talky now uses **Qwen 3.8 27B** for both normal chats and image chats.
+> **Model update:** Qwen 3.6 27B has been decommissioned by Groq. Talky now uses **Qwen 3.8 27B** for both normal chats and image chats.
 
 ---
 
